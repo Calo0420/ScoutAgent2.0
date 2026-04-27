@@ -1,0 +1,35 @@
+# Environment
+.env
+*.env
+
+# Virtual environment
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Reports — generated output, not source
+reports/
+
+# SSH keys — never commit
+*.pem
+*.rsa
+id_rsa*
+id_ed25519*
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python packaging
+*.egg-info/
+dist/
+build/

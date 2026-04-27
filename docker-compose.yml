@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  scout:
+    build: .
+    image: apex-scout:latest
+    environment:
+      # Set DEPLOY_MODE to: claude | bedrock | ollama
+      - DEPLOY_MODE=${DEPLOY_MODE:-claude}
+      # Claude direct
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # AWS Bedrock (only needed if DEPLOY_MODE=bedrock)
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      # Ollama (only needed if DEPLOY_MODE=ollama)
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://localhost:11434/v1}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3}
+    volumes:
+      - ./reports:/app/reports   # reports saved here after each run
+    network_mode: host            # needs host network to reach client infra
