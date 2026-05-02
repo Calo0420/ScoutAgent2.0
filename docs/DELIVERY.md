@@ -1,5 +1,5 @@
 # AI Infrastructure Scout Agent — Delivery Reference
-**Apex Systems | Infrastructure Practice | Internal Use Only**
+**Everforth Infrastructure Practice | An Apex Systems Company | Internal Use Only**
 **Companion to: TECHNICAL.md**
 
 ---
@@ -44,7 +44,7 @@ Up to 3 priorities, each containing:
 - Why it matters (business impact, not technical detail)
 - Effort and cost estimate
 - Expected outcome
-- Which Apex accelerator delivers it
+- Which Everforth accelerator delivers it
 
 ### Language Rules
 **DO:** Use dollar figures. Use percentages. Name specific servers only when critical.
@@ -136,7 +136,7 @@ The financial case. Written for CFO and procurement. Every number needs a confid
 ### Structure
 
 **Section 1 — The Investment**
-What Apex is proposing and what it costs (delivery hours, licensing if any).
+What Everforth is proposing and what it costs (delivery hours, licensing if any).
 
 **Section 2 — The Return**
 
@@ -235,11 +235,11 @@ A1 · A2 · A5 · A8
 - [ ] Every finding tied to a specific host (no vague "some servers")
 - [ ] Every dollar figure has a source or confidence level
 - [ ] No acronyms without definition on first use
-- [ ] Applicable Apex accelerator listed at end of each section
+- [ ] Applicable Everforth accelerator listed at end of each section
 - [ ] Executive Summary readable without reading the rest
 - [ ] Risk register has no blank cells
 - [ ] Roadmap phases have real dates, not "TBD"
 
 ---
 
-*Apex Systems | Infrastructure Practice | Confidential*
+*Everforth Infrastructure Practice | An Apex Systems Company | Confidential*

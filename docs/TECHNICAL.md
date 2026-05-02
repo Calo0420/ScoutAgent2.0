@@ -1,5 +1,5 @@
 # AI Infrastructure Scout Agent — Technical Reference
-**Apex Systems | Infrastructure Practice | Internal Use Only**
+**Everforth Infrastructure Practice | An Apex Systems Company | Internal Use Only**
 
 ---
 
@@ -72,7 +72,7 @@ Requires a GPU server running Ollama with a compatible model loaded. Recommended
 The agent is initialized with this system prompt on every run:
 
 ```
-You are the AI Infrastructure Scout Agent built by Apex Systems.
+You are the AI Infrastructure Scout Agent built by Everforth, an Apex Systems company.
 You have access to read-only scanning tools that assess client infrastructure.
 
 Your job:
@@ -215,7 +215,7 @@ The `generate_executive_report` tool enforces this section order:
 5. License Cost Comparison
 6. Migration Roadmap
 
-Each section ends with the applicable Apex accelerator reference.
+Each section ends with the applicable Everforth accelerator reference.
 
 ---
 
@@ -262,4 +262,4 @@ nmap                 # System package (included in Docker image)
 
 ---
 
-*Apex Systems | Infrastructure Practice | Confidential*
+*Everforth Infrastructure Practice | An Apex Systems Company | Confidential*

@@ -14,17 +14,14 @@ Usage:
 import argparse
 import json
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
 
 import anthropic
 
-from tools.linux_scout    import scan_linux_environment, check_cis_benchmarks, audit_automation_maturity
-from tools.vmware_scout   import scan_vmware_environment
-from tools.network_scout  import scan_network_health
-from tools.ai_stack_scout import assess_ai_stack
-
-DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true"
+# Check --demo in sys.argv early so mock imports happen before argparse runs
+DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true" or "--demo" in sys.argv
 
 if DEMO_MODE:
     from tools.mock_tools import (
@@ -35,6 +32,11 @@ if DEMO_MODE:
         mock_scan_network_health       as scan_network_health,
         mock_assess_ai_stack           as assess_ai_stack,
     )
+else:
+    from tools.linux_scout    import scan_linux_environment, check_cis_benchmarks, audit_automation_maturity
+    from tools.vmware_scout   import scan_vmware_environment
+    from tools.network_scout  import scan_network_health
+    from tools.ai_stack_scout import assess_ai_stack
 
 # ── Model config ──────────────────────────────────────────────────────────────
 # DEPLOY_MODE controls which backend Claude runs on:
@@ -173,7 +175,7 @@ TOOLS = [
                         "4. Savings Estimate (annual savings, 3-year TCO comparison, break-even, confidence level) | "
                         "5. License Cost Comparison (current vs Linux/alternative, per-server cost detail) | "
                         "6. Migration Roadmap (30/60/90-day phases, scope per phase, out-of-scope servers, success criteria) | "
-                        "Each section must end with: Applicable Apex Accelerator — e.g. A1, A2, A5."
+                        "Each section must end with: Applicable Everforth Accelerator — e.g. A1, A2, A5."
                     ),
                 },
             },
@@ -181,6 +183,110 @@ TOOLS = [
         },
     },
 ]
+
+
+TOOL_TO_NODE = {
+    "scan_linux_environment":    "Linux Server",
+    "check_cis_benchmarks":      "Linux Server",
+    "audit_automation_maturity": "Automation",
+    "assess_ai_stack":           "AI/ML Stack",
+    "scan_network_health":       "Network Scan",
+    "scan_vmware_environment":   "VMware Cluster",
+}
+
+
+def map_findings_to_ui(all_findings: dict, client_name: str, ts: str,
+                        status: str = "complete", current_node: str = None) -> dict:
+    """Maps raw tool output to the UI's findings key format."""
+    findings, details = {}, {}
+
+    # CIS Benchmarks → linux toggles
+    cis      = all_findings.get("check_cis_benchmarks", {})
+    controls = {c["control"]: c for c in cis.get("controls", [])}
+    toggle_map = {
+        "ssh":      "SSH: PermitRootLogin disabled",
+        "passauth": "SSH: Password auth disabled",
+        "selinux":  "SELinux enforcing",
+        "auditd":   "auditd enabled",
+    }
+    for key, label in toggle_map.items():
+        ctrl = controls.get(label, {})
+        findings[key] = not ctrl.get("passed", True)
+        details[key]  = ctrl.get("remediation", "") if ctrl else ""
+
+    # Linux env → disk, patch
+    linux    = all_findings.get("scan_linux_environment", {})
+    disk_str = linux.get("disk_usage", "")
+    try:
+        pct = int(disk_str.split("%")[0].strip().split()[-1])
+        findings["disk"] = pct >= 85
+    except Exception:
+        findings["disk"] = False
+    details["disk"]  = disk_str
+    last_patch       = linux.get("last_patch", "")
+    findings["patch"] = False  # conservative — requires distro-specific date parsing
+    details["patch"]  = last_patch or "Unknown"
+
+    # Network risks → port toggles
+    net      = all_findings.get("scan_network_health", {})
+    risks    = net.get("risks", [])
+    port_map = {"mongo": 27017, "redis": 6379, "telnet": 23, "rdp": 3389}
+    for key, port in port_map.items():
+        hit = next((r for r in risks if r["port"] == port), None)
+        findings[key] = bool(hit)
+        details[key]  = f"{hit['host']}:{hit['port']} — {hit['label']}" if hit else ""
+
+    # VMware
+    vmw = all_findings.get("scan_vmware_environment", {})
+    findings["vmsoff"]   = bool(vmw.get("powered_off_vms"))
+    findings["oversize"] = bool(vmw.get("oversized_vms"))
+    findings["snap"]     = bool(vmw.get("risky_snapshots"))
+    details["vmsoff"]   = f"{len(vmw.get('powered_off_vms', []))} VMs" if vmw.get("powered_off_vms") else ""
+    details["oversize"] = str(vmw.get("oversized_vms", ""))
+    details["snap"]     = str(vmw.get("risky_snapshots", ""))
+
+    # AI stack
+    ai = all_findings.get("assess_ai_stack", {})
+    findings["nogpu"]   = not bool(ai.get("gpu"))
+    findings["nomodel"] = not bool(ai.get("model_serving"))
+    details["nogpu"]    = ai.get("summary", "No GPU detected")
+    details["nomodel"]  = str(list(ai.get("model_serving", {}).keys())) if ai.get("model_serving") else "No serving platform found"
+
+    # Automation
+    auto  = all_findings.get("audit_automation_maturity", {})
+    tools = auto.get("tools_detected", {})
+    findings["noansible"] = not bool(tools.get("ansible") or tools.get("terraform") or
+                                     tools.get("puppet") or tools.get("chef") or tools.get("salt"))
+    findings["nocicd"]    = not (tools.get("jenkins", "") == "active")
+    details["noansible"] = f"Detected: {list(tools.keys())}" if tools else "No IaC tools found"
+    details["nocicd"]    = f"Jenkins: {tools.get('jenkins', 'not found')}"
+
+    return {
+        "scan_id":      f"{client_name.lower().replace(' ', '_')}_{ts}",
+        "client":       client_name,
+        "scanned_at":   ts,
+        "status":       status,
+        "current_node": current_node,
+        "findings":     findings,
+        "details":      details,
+        "meta": {
+            "host":                linux.get("host", ""),
+            "os":                  linux.get("os", ""),
+            "cis_score":           cis.get("score", ""),
+            "cis_risk":            cis.get("risk_level", ""),
+            "network_risk":        net.get("risk_rating", ""),
+            "ai_readiness":        ai.get("ai_readiness", ""),
+            "automation_maturity": auto.get("maturity_level", ""),
+        },
+    }
+
+
+def _write_latest(data: dict) -> None:
+    """Atomically write reports/latest.json for the live UI."""
+    Path("reports").mkdir(exist_ok=True)
+    tmp = Path("reports/latest.json.tmp")
+    tmp.write_text(json.dumps(data, indent=2))
+    tmp.replace(Path("reports/latest.json"))
 
 
 # ── Tool dispatcher ───────────────────────────────────────────────────────────
@@ -220,7 +326,7 @@ def run_scout(user_request: str, client_name: str = "Client") -> str:
 
     print(f"[Scout] Mode: {DEPLOY_MODE.upper()} | Model: {model}{' | DEMO' if DEMO_MODE else ''}")
 
-    system_prompt = f"""You are the AI Infrastructure Scout Agent, built by Apex Systems Infrastructure Practice.
+    system_prompt = f"""You are the AI Infrastructure Scout Agent, built by Everforth (an Apex Systems company).
 You are the most advanced infrastructure assessment agent available — designed to replace weeks of manual consulting work with a single automated run.
 Today's date: {datetime.now().strftime('%Y-%m-%d')}.
 Client: {client_name}
@@ -248,7 +354,7 @@ You are a senior infrastructure consultant with deep expertise in Linux, VMware,
 - Every dollar figure must have a source and confidence level
 - The roadmap must have real 30/60/90-day phases — not vague recommendations
 - Executive Summary must be readable by a CIO in under 5 minutes with no technical background
-- Each section ends with the applicable Apex accelerator reference
+- Each section ends with the applicable Everforth accelerator reference
 
 ## What You Never Do
 - Never suggest making changes to client systems — assess only
@@ -282,8 +388,8 @@ You are a senior infrastructure consultant with deep expertise in Linux, VMware,
         if response.stop_reason == "end_turn":
             for block in reversed(response.content):
                 if hasattr(block, "text") and len(block.text) > 200:
-                    return block.text
-            return "Assessment complete — no report generated."
+                    return block.text, all_findings
+            return "Assessment complete — no report generated.", all_findings
 
         if response.stop_reason != "tool_use":
             break
@@ -301,6 +407,13 @@ You are a senior infrastructure consultant with deep expertise in Linux, VMware,
                 failed_tools.append({"tool": block.name, "error": result_json["error"]})
             else:
                 all_findings[block.name] = result_json
+                # Write partial results so the UI can show live progress
+                _write_latest(map_findings_to_ui(
+                    all_findings, client_name,
+                    datetime.utcnow().strftime("%Y%m%d_%H%M%S"),
+                    status="scanning",
+                    current_node=TOOL_TO_NODE.get(block.name),
+                ))
 
             tool_results.append({
                 "type":        "tool_result",
@@ -317,24 +430,34 @@ You are a senior infrastructure consultant with deep expertise in Linux, VMware,
             })
         messages.append({"role": "user", "content": tool_results})
 
-    return "Assessment complete."
+    return "Assessment complete.", all_findings
 
 
 # ── Save report to file ───────────────────────────────────────────────────────
-def save_report(report: str, client_name: str) -> str:
+def save_report(report: str, client_name: str, all_findings: dict = None) -> str:
     Path("reports").mkdir(exist_ok=True)
     ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
     slug = client_name.lower().replace(" ", "_")
-    path = f"reports/{slug}_{ts}.md"
-    with open(path, "w") as f:
+
+    md_path = f"reports/{slug}_{ts}.md"
+    with open(md_path, "w") as f:
         f.write(report)
-    print(f"\n[Scout] Report saved → {path}")
-    return path
+    print(f"\n[Scout] Report saved → {md_path}")
+
+    if all_findings is not None:
+        ui_data = map_findings_to_ui(all_findings, client_name, ts, status="complete")
+        json_path = f"reports/{slug}_{ts}.json"
+        Path(json_path).write_text(json.dumps(ui_data, indent=2))
+        _write_latest(ui_data)
+        print(f"[Scout] JSON saved   → {json_path}")
+        print(f"[Scout] Live UI      → reports/latest.json updated")
+
+    return md_path
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="AI Infrastructure Scout Agent — Apex Systems")
+    parser = argparse.ArgumentParser(description="AI Infrastructure Scout Agent — Everforth")
     parser.add_argument("--client",   default="Client",  help="Client name for the report")
     parser.add_argument("--host",     help="Linux host IP/hostname")
     parser.add_argument("--user",     help="SSH username")
@@ -361,10 +484,15 @@ if __name__ == "__main__":
     if args.subnet:
         parts.append(f"Run network health check on subnet {args.subnet}.")
     if not parts:
-        parts.append("Run a full infrastructure assessment using all available tools.")
+        if DEMO_MODE:
+            parts.append("Scan Linux host 10.0.0.10 (SSH user=demo password=demo). Run linux assessment, CIS benchmarks, automation audit, and AI stack assessment.")
+            parts.append("Scan VMware vCenter at vcenter.demo.local user=administrator@vsphere.local password=Demo1234!.")
+            parts.append("Run network health check on subnet 10.0.0.0/24.")
+        else:
+            parts.append("Run a full infrastructure assessment using all available tools.")
 
     parts.append("After all scans, generate the full executive report.")
     request = " ".join(parts)
 
-    report = run_scout(request, client_name=args.client)
-    save_report(report, args.client)
+    report, findings = run_scout(request, client_name=args.client)
+    save_report(report, args.client, findings)

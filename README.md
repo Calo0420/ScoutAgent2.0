@@ -2,7 +2,7 @@
 
 > One command. One agent. Client-ready infrastructure assessment in minutes.
 
-**Powered by Claude (Anthropic) · Covers 6 of 11 Apex Accelerators · Three deployment modes**
+**Powered by Claude (Anthropic) · Covers 6 of 11 Everforth Accelerators · Three deployment modes**
 
 ---
 

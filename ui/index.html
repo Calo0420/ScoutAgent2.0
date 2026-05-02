@@ -1,0 +1,855 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCOUTER 2.0 — APEX INFRA TEST ENVIRONMENT</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#030a03;--panel:#08120a;--panel2:#0b160c;--border:#152015;
+  --text:#a8bea0;--muted:#3d5040;--accent:#c8a832;--accent2:#e8c840;
+  --crit:#ff2828;--high:#ff7a00;--med:#e8c840;--low:#40c870;
+  --info:#3a9cff;--safe:#30e060;--node-bg:#0d1a0e;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100vh;display:flex;flex-direction:column}
+.mono{font-family:'Share Tech Mono',monospace}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:var(--border)}
+.panel{background:var(--panel);border:1px solid var(--border)}
+.phead{font-size:10px;letter-spacing:2.5px;text-transform:uppercase;color:var(--accent);padding:7px 10px;border-bottom:1px solid var(--border);font-weight:700;font-family:'Share Tech Mono',monospace}
+/* Toggles */
+.cfg-row{display:flex;align-items:center;justify-content:space-between;padding:4px 10px;font-size:12px;gap:6px}
+.cfg-label{color:var(--muted);flex:1;font-size:11px}
+.cfg-row.enabled .cfg-label{color:var(--text)}
+.toggle{position:relative;width:28px;height:16px;flex-shrink:0;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{position:absolute;inset:0;background:#111;border-radius:8px;border:1px solid var(--border);transition:all .2s}
+.toggle-thumb{position:absolute;top:2px;left:2px;width:10px;height:10px;background:var(--muted);border-radius:50%;transition:all .2s}
+.toggle input:checked~.toggle-track{background:rgba(255,40,40,.15);border-color:var(--crit)}
+.toggle input:checked~.toggle-thumb{background:var(--crit);transform:translateX(12px);box-shadow:0 0 6px var(--crit)}
+/* Accelerators */
+.accel{display:flex;align-items:center;gap:8px;padding:5px 10px;border:1px solid var(--border);background:var(--panel2);border-radius:2px;cursor:pointer;transition:all .2s;margin:2px 0}
+.accel.on{border-color:var(--safe);background:rgba(48,224,96,.04)}
+.accel.disabled{border-color:var(--crit)!important;opacity:.5}
+.adot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:all .2s}
+.accel.on .adot{background:var(--safe);box-shadow:0 0 5px var(--safe)}
+.atag{font-size:10px;font-weight:700;color:var(--accent);font-family:'Share Tech Mono',monospace;width:18px;flex-shrink:0}
+.aname{font-size:11px;flex:1}
+.acov{font-size:9px;color:var(--muted);letter-spacing:1px}
+/* Run button */
+.run-btn{width:100%;background:var(--accent);color:#000;font-weight:700;font-family:'Exo 2',sans-serif;border:none;padding:9px;border-radius:2px;cursor:pointer;font-size:13px;letter-spacing:1px;transition:all .2s}
+.run-btn:hover:not(:disabled){background:var(--accent2);transform:translateY(-1px)}
+.run-btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
+/* Canvas area */
+.canvas-wrap{flex:1;position:relative;background:#020802;overflow:hidden}
+.canvas-wrap::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 24px,rgba(0,255,0,.015) 24px,rgba(0,255,0,.015) 25px),repeating-linear-gradient(90deg,transparent,transparent 24px,rgba(0,255,0,.015) 24px,rgba(0,255,0,.015) 25px);pointer-events:none;z-index:0}
+canvas{display:block;position:relative;z-index:1}
+.hud{position:absolute;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);pointer-events:none;z-index:2}
+/* Bottom bar */
+.bottom-bar{height:115px;border-top:1px solid var(--border);display:flex;background:var(--panel);flex-shrink:0}
+.telemetry{flex:1;padding:8px 10px}
+.tl-title{font-size:9px;letter-spacing:2.5px;color:var(--accent);font-family:'Share Tech Mono',monospace;margin-bottom:6px}
+.findings-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:6px}
+.find-box{text-align:center;border:1px solid var(--border);border-radius:2px;padding:4px 2px}
+.find-val{font-size:20px;font-weight:700;font-family:'Share Tech Mono',monospace}
+.find-lbl{font-size:9px;letter-spacing:1.5px}
+.find-box.crit .find-val{color:var(--crit)} .find-box.crit .find-lbl{color:rgba(255,40,40,.6)}
+.find-box.high .find-val{color:var(--high)} .find-box.high .find-lbl{color:rgba(255,122,0,.6)}
+.find-box.med  .find-val{color:var(--med)}  .find-box.med  .find-lbl{color:rgba(232,200,64,.6)}
+.find-box.low  .find-val{color:var(--low)}  .find-box.low  .find-lbl{color:rgba(64,200,112,.6)}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.stat-item{font-size:10px}
+.stat-item span{color:var(--muted);font-size:9px}
+/* Event log */
+.event-log{width:280px;border-left:1px solid var(--border);padding:4px 0;overflow:hidden;display:flex;flex-direction:column}
+.ev-title{font-size:9px;letter-spacing:2.5px;color:var(--accent);font-family:'Share Tech Mono',monospace;padding:4px 8px 3px}
+.ev-list{flex:1;overflow-y:auto;padding:0 2px}
+.ev{font-size:10px;padding:2px 6px;border-left:2px solid var(--border);margin-bottom:2px;font-family:'Share Tech Mono',monospace;opacity:0;animation:evIn .25s forwards}
+@keyframes evIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+.ev.crit{border-color:var(--crit);color:var(--crit)}
+.ev.high{border-color:var(--high);color:var(--high)}
+.ev.med{border-color:var(--med);color:var(--med)}
+.ev.low{border-color:var(--low);color:var(--low)}
+.ev.info{border-color:var(--info);color:var(--info)}
+.ev.ok{border-color:var(--safe);color:var(--safe)}
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:50;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal{background:var(--panel);border:1px solid var(--accent);border-radius:3px;padding:24px;width:480px;max-height:85vh;overflow-y:auto}
+.modal-score{font-size:56px;font-weight:700;font-family:'Share Tech Mono',monospace;text-align:center;line-height:1}
+.modal-grade{font-size:13px;text-align:center;margin-top:4px;letter-spacing:2px}
+.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0;font-size:12px}
+.modal-grid .mk{color:var(--muted)} .modal-grid .mv{text-align:right;font-family:'Share Tech Mono',monospace}
+.miss-list{font-size:11px;margin:8px 0;padding:8px;border:1px solid rgba(255,40,40,.3);background:rgba(255,40,40,.04);border-radius:2px}
+.miss-item{color:var(--crit);margin:2px 0;font-family:'Share Tech Mono',monospace}
+/* Scenario presets */
+.preset-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:8px 10px}
+.preset-btn{padding:5px;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:2px;cursor:pointer;font-size:10px;letter-spacing:1px;font-family:'Exo 2',sans-serif;transition:all .2s}
+.preset-btn:hover,.preset-btn.active{border-color:var(--accent);color:var(--accent)}
+/* Pulse animation */
+@keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+.pulse{animation:pulse 1.8s infinite}
+/* Score display */
+.score-display{text-align:center;padding:8px}
+.score-num{font-size:36px;font-weight:700;font-family:'Share Tech Mono',monospace;color:var(--accent)}
+.score-lbl{font-size:9px;letter-spacing:2px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header style="height:36px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0">
+  <div style="display:flex;align-items:center;gap:10px">
+    <span class="mono" style="color:var(--accent);font-size:11px;letter-spacing:2px">SCOUTER 2.0</span>
+    <span class="mono" style="color:var(--muted);font-size:10px">// APEX INFRA TEST ENVIRONMENT</span>
+    <span class="mono" id="liveTag" style="color:var(--muted);font-size:10px;border:1px solid var(--border);padding:1px 6px;border-radius:2px">DEMO</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px">
+    <span class="mono pulse" style="color:var(--safe);font-size:10px">&#9679; STANDBY</span>
+    <span class="mono" style="color:var(--muted);font-size:10px" id="clock">00:00:00</span>
+    <span class="mono" style="color:var(--muted);font-size:9px;padding:0 4px">|</span>
+    <a href="/manual/client-it" target="_blank" class="mono" style="color:var(--muted);font-size:10px;text-decoration:none;border:1px solid var(--border);padding:1px 6px;border-radius:2px;transition:all .2s" onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">IT MANUAL</a>
+    <a href="/manual/sales" target="_blank" class="mono" style="color:var(--muted);font-size:10px;text-decoration:none;border:1px solid var(--border);padding:1px 6px;border-radius:2px;transition:all .2s" onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">SALES PLAYBOOK</a>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main style="flex:1;display:flex;overflow:hidden">
+
+  <!-- LEFT: ENVIRONMENT CONFIG -->
+  <aside style="width:200px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;background:var(--panel)">
+    <div class="phead">&#9881; Inject Vulnerabilities</div>
+
+    <div style="padding:4px 0 2px">
+      <div class="phead" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px">A1 / A2 — LINUX</div>
+      <div class="cfg-row" id="row-ssh"><span class="cfg-label">Root SSH enabled</span><label class="toggle"><input type="checkbox" id="cfg-ssh"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-passauth"><span class="cfg-label">Password auth on</span><label class="toggle"><input type="checkbox" id="cfg-passauth"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-selinux"><span class="cfg-label">SELinux disabled</span><label class="toggle"><input type="checkbox" id="cfg-selinux"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-auditd"><span class="cfg-label">auditd disabled</span><label class="toggle"><input type="checkbox" id="cfg-auditd"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-patch"><span class="cfg-label">Unpatched &gt;60 days</span><label class="toggle"><input type="checkbox" id="cfg-patch"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-disk"><span class="cfg-label">Disk &gt;85% full</span><label class="toggle"><input type="checkbox" id="cfg-disk"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+    </div>
+
+    <div style="padding:4px 0 2px;border-top:1px solid var(--border)">
+      <div class="phead" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px">A3 — NETWORK</div>
+      <div class="cfg-row" id="row-mongo"><span class="cfg-label">MongoDB open (27017)</span><label class="toggle"><input type="checkbox" id="cfg-mongo"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-redis"><span class="cfg-label">Redis open (6379)</span><label class="toggle"><input type="checkbox" id="cfg-redis"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-telnet"><span class="cfg-label">Telnet active (23)</span><label class="toggle"><input type="checkbox" id="cfg-telnet"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-rdp"><span class="cfg-label">RDP exposed (3389)</span><label class="toggle"><input type="checkbox" id="cfg-rdp"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+    </div>
+
+    <div style="padding:4px 0 2px;border-top:1px solid var(--border)">
+      <div class="phead" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px">A5 — VMWARE</div>
+      <div class="cfg-row" id="row-vmsoff"><span class="cfg-label">5 powered-off VMs</span><label class="toggle"><input type="checkbox" id="cfg-vmsoff"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-oversize"><span class="cfg-label">Oversized VMs (&lt;2% CPU)</span><label class="toggle"><input type="checkbox" id="cfg-oversize"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-snap"><span class="cfg-label">Old snapshots (PROD)</span><label class="toggle"><input type="checkbox" id="cfg-snap"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+    </div>
+
+    <div style="padding:4px 0 2px;border-top:1px solid var(--border)">
+      <div class="phead" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px">A7 / A8 — AI & AUTO</div>
+      <div class="cfg-row" id="row-nogpu"><span class="cfg-label">No GPU / no CUDA</span><label class="toggle"><input type="checkbox" id="cfg-nogpu"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-nomodel"><span class="cfg-label">No model serving</span><label class="toggle"><input type="checkbox" id="cfg-nomodel"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-noansible"><span class="cfg-label">No Ansible / IaC</span><label class="toggle"><input type="checkbox" id="cfg-noansible"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-nocicd"><span class="cfg-label">No CI/CD pipeline</span><label class="toggle"><input type="checkbox" id="cfg-nocicd"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+    </div>
+
+    <div style="border-top:1px solid var(--border)">
+      <div class="phead">Scenario Presets</div>
+      <div class="preset-grid">
+        <button class="preset-btn" data-p="clean">CLEAN</button>
+        <button class="preset-btn" data-p="moderate">MODERATE</button>
+        <button class="preset-btn active" data-p="harsh">HARSH</button>
+        <button class="preset-btn" data-p="nightmare">NIGHTMARE</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CENTER: TOPOLOGY CANVAS -->
+  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="topoCanvas"></canvas>
+      <div class="hud" style="top:6px;left:8px" id="hudNode">NODE: --</div>
+      <div class="hud" style="top:6px;right:8px" id="hudScan">IDLE</div>
+      <div class="hud" style="bottom:6px;left:8px" id="hudAccel">ACTIVE ACCELERATORS: --</div>
+      <div class="hud" style="bottom:6px;right:8px" id="hudTime">T+0.0s</div>
+    </div>
+
+    <!-- BOTTOM BAR -->
+    <div class="bottom-bar">
+      <div class="telemetry">
+        <div class="tl-title">FINDINGS SUMMARY</div>
+        <div class="findings-grid">
+          <div class="find-box crit"><div class="find-val" id="fCrit">0</div><div class="find-lbl">CRITICAL</div></div>
+          <div class="find-box high"><div class="find-val" id="fHigh">0</div><div class="find-lbl">HIGH</div></div>
+          <div class="find-box med"><div class="find-val" id="fMed">0</div><div class="find-lbl">MEDIUM</div></div>
+          <div class="find-box low"><div class="find-val" id="fLow">0</div><div class="find-lbl">LOW</div></div>
+        </div>
+        <div class="stats-row mono" style="font-size:11px">
+          <div><div style="color:var(--muted);font-size:9px">NODES</div><span id="sNodes">0/0</span></div>
+          <div><div style="color:var(--muted);font-size:9px">MISSED</div><span id="sMissed" style="color:var(--crit)">0</span></div>
+          <div><div style="color:var(--muted);font-size:9px">ELAPSED</div><span id="sTime">0.0s</span></div>
+          <div><div style="color:var(--muted);font-size:9px">COVERAGE</div><span id="sCov">--%</span></div>
+        </div>
+      </div>
+      <div class="event-log">
+        <div class="ev-title">SCAN LOG</div>
+        <div class="ev-list" id="evList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: ACCELERATORS -->
+  <aside style="width:200px;flex-shrink:0;border-left:1px solid var(--border);overflow-y:auto;background:var(--panel);display:flex;flex-direction:column">
+    <div class="phead">&#9654; Accelerators</div>
+    <div style="padding:6px 8px;flex:1">
+      <div class="accel on" data-idx="0"><div class="adot"></div><span class="atag">A1</span><div><div class="aname" style="font-size:11px">Linux Fast Track</div><div class="acov">PATCH · INVENTORY</div></div></div>
+      <div class="accel on" data-idx="1"><div class="adot"></div><span class="atag">A2</span><div><div class="aname" style="font-size:11px">Hardening Sprint</div><div class="acov">CIS · SSH · SELINUX</div></div></div>
+      <div class="accel on" data-idx="2"><div class="adot"></div><span class="atag">A3</span><div><div class="aname" style="font-size:11px">Network Health</div><div class="acov">PORTS · EXPOSURE</div></div></div>
+      <div class="accel on" data-idx="3"><div class="adot"></div><span class="atag">A5</span><div><div class="aname" style="font-size:11px">VMware Optimizer</div><div class="acov">COST · VMs · SNAP</div></div></div>
+      <div class="accel on" data-idx="4"><div class="adot"></div><span class="atag">A7</span><div><div class="aname" style="font-size:11px">AI Stack Assess</div><div class="acov">GPU · ML · SERVING</div></div></div>
+      <div class="accel on" data-idx="5"><div class="adot"></div><span class="atag">A8</span><div><div class="aname" style="font-size:11px">Automation &amp; IaC</div><div class="acov">ANSIBLE · CI/CD</div></div></div>
+    </div>
+
+    <div style="border-top:1px solid var(--border)">
+      <div class="phead">&#9670; Controls</div>
+      <div style="padding:8px">
+        <button class="run-btn" id="runBtn">&#9654; RUN SCAN</button>
+        <div style="margin-top:8px;text-align:center">
+          <div class="score-lbl">DETECTION SCORE</div>
+          <div class="score-num" id="scoreNum">--</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="border-top:1px solid var(--border)">
+      <div class="phead">Shortcuts</div>
+      <div class="mono" style="padding:6px 10px;font-size:10px;color:var(--muted);display:flex;flex-direction:column;gap:2px">
+        <div><span style="color:var(--text)">SPACE</span> Run / Reset</div>
+        <div><span style="color:var(--text)">1-6</span> Toggle accel</div>
+        <div><span style="color:var(--text)">N</span> Nightmare mode</div>
+        <div><span style="color:var(--text)">C</span> Clean mode</div>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<!-- RESULTS MODAL -->
+<div class="overlay" id="modal" style="display:none">
+  <div class="modal">
+    <div style="text-align:center;margin-bottom:16px">
+      <div class="mono" style="font-size:10px;letter-spacing:3px;color:var(--accent)">SCAN DEBRIEF</div>
+      <div class="modal-score" id="mScore" style="color:var(--accent)">--</div>
+      <div class="modal-grade" id="mGrade" style="color:var(--muted)">--</div>
+    </div>
+    <div class="modal-grid" id="mGrid"></div>
+    <div id="mMisses" style="display:none">
+      <div style="font-size:10px;letter-spacing:1px;color:var(--crit);margin-bottom:4px">&#9888; MISSED FINDINGS (ACCELERATOR DISABLED)</div>
+      <div class="miss-list" id="mMissList"></div>
+    </div>
+    <button class="run-btn" style="margin-top:16px" onclick="document.getElementById('modal').style.display='none'">ACKNOWLEDGED</button>
+  </div>
+</div>
+
+<script>
+// ========== CONFIG DEFINITIONS ==========
+const CONFIGS = {
+  ssh:       {id:'cfg-ssh',     accel:1, sev:'crit', label:'Root SSH enabled on 10.0.0.10',           detail:'PermitRootLogin yes — direct root brute-force vector'},
+  passauth:  {id:'cfg-passauth',accel:1, sev:'crit', label:'SSH password auth enabled',               detail:'Key-based auth not enforced — 143 failed login attempts logged'},
+  selinux:   {id:'cfg-selinux', accel:1, sev:'high', label:'SELinux in permissive mode',              detail:'Kernel enforcement disabled — exploit containment ineffective'},
+  auditd:    {id:'cfg-auditd',  accel:1, sev:'high', label:'auditd service disabled',                 detail:'No audit trail — UNKNOWN login Apr 22 03:17 undetected'},
+  patch:     {id:'cfg-patch',   accel:0, sev:'high', label:'74 days since last patch',                detail:'kernel 4.18.0-372.9.1 — known CVEs unpatched'},
+  disk:      {id:'cfg-disk',    accel:0, sev:'med',  label:'Disk at 85% utilization',                 detail:'390 GB / 500 GB — critical threshold in ~30 days'},
+  mongo:     {id:'cfg-mongo',   accel:2, sev:'crit', label:'MongoDB 27017 open — no auth',            detail:'10.10.0.18 — entire DB readable/writable from subnet'},
+  redis:     {id:'cfg-redis',   accel:2, sev:'crit', label:'Redis 6379 open — no auth',               detail:'10.10.0.31 — RCE via module loading possible'},
+  telnet:    {id:'cfg-telnet',  accel:2, sev:'crit', label:'Telnet active on 10.10.0.5:23',           detail:'Credentials transmitted in plaintext — trivially sniffable'},
+  rdp:       {id:'cfg-rdp',     accel:2, sev:'high', label:'RDP 3389 exposed to subnet',              detail:'10.10.0.22 — brute-force + BlueKeep-class exploit target'},
+  vmsoff:    {id:'cfg-vmsoff',  accel:3, sev:'med',  label:'5 powered-off VMs consuming licenses',   detail:'OLD-WEB-01, TEST-DB-03, DECOM-APP-07 — $1,600/yr waste'},
+  oversize:  {id:'cfg-oversize',accel:3, sev:'med',  label:'3 VMs oversized (<2% CPU utilization)',   detail:'PROD-APP-02 (16→8 vCPU), PROD-APP-04, DEV-BUILD-01'},
+  snap:      {id:'cfg-snap',    accel:3, sev:'high', label:'Active snapshot on PROD-DB-01',           detail:'Unbounded growth — storage exhaustion + performance risk'},
+  nogpu:     {id:'cfg-nogpu',   accel:4, sev:'low',  label:'No GPU detected — CUDA unavailable',     detail:'AI/ML workloads constrained to CPU — not production-ready'},
+  nomodel:   {id:'cfg-nomodel', accel:4, sev:'low',  label:'No model serving platform found',        detail:'Only scikit-learn — no inference stack, no vector DB'},
+  noansible: {id:'cfg-noansible',accel:5,sev:'med',  label:'No Ansible / Terraform detected',        detail:'Configuration drift inevitable across 47 VMs — manual only'},
+  nocicd:    {id:'cfg-nocicd',  accel:5, sev:'med',  label:'No CI/CD pipeline configured',           detail:'Only git + Docker — no automated testing or deployment'},
+};
+
+const ACCEL_MAP = [0,1,2,3,4,5];
+let accels = [true,true,true,true,true,true];
+
+const PRESETS = {
+  clean:    [],
+  moderate: ['ssh','mongo','telnet','vmsoff','noansible'],
+  harsh:    ['ssh','passauth','selinux','auditd','patch','mongo','redis','telnet','vmsoff','snap','nogpu','noansible','nocicd'],
+  nightmare: Object.keys(CONFIGS),
+};
+
+// ========== NETWORK TOPOLOGY NODES ==========
+let NODES = [
+  {id:'linux',   label:'Linux Server', sub:'10.0.0.10  RHEL 8.6',  icon:'&#9000;', accels:[0,1], cfgKeys:['ssh','passauth','selinux','auditd','patch','disk'], x:0,y:0,w:140,h:60},
+  {id:'network', label:'Network Scan', sub:'10.0.0.0/24',          icon:'&#9112;', accels:[2],   cfgKeys:['mongo','redis','telnet','rdp'],                     x:0,y:0,w:140,h:60},
+  {id:'vmware',  label:'VMware Cluster',sub:'vc.demo-client.local', icon:'&#9633;', accels:[3],   cfgKeys:['vmsoff','oversize','snap'],                         x:0,y:0,w:140,h:60},
+  {id:'ai',      label:'AI/ML Stack',  sub:'Scikit / No GPU',       icon:'&#9670;', accels:[4],   cfgKeys:['nogpu','nomodel'],                                  x:0,y:0,w:140,h:60},
+  {id:'auto',    label:'Automation',   sub:'Git / Docker only',     icon:'&#9881;', accels:[5],   cfgKeys:['noansible','nocicd'],                               x:0,y:0,w:140,h:60},
+];
+
+// ========== STATE ==========
+let running=false, scanTime=0, scanIdx=0, nodeQueue=[], findings=[], misses=[];
+let agentX=0,agentY=0,agentTargetX=0,agentTargetY=0,agentMoveT=0;
+let nodeStates={};
+let totalFindings=0, totalMissed=0, nodesScanned=0;
+let animT=0, lastT=0, scanDelay=0, checkIdx=0, currentChecks=[];
+let phase='idle';
+let pings=[];
+
+const canvas=document.getElementById('topoCanvas');
+const ctx=canvas.getContext('2d');
+
+// ========== LAYOUT ==========
+function layoutNodes(){
+  const wrap=document.getElementById('canvasWrap');
+  const W=wrap.offsetWidth, H=wrap.offsetHeight;
+  canvas.width=W; canvas.height=H;
+  const cx=W/2, cy=H/2;
+  const r=Math.min(W,H)*0.3;
+  for(let i=0;i<NODES.length;i++){
+    const a=(i/NODES.length)*Math.PI*2-Math.PI/2;
+    NODES[i].x=cx+Math.cos(a)*r-NODES[i].w/2;
+    NODES[i].y=cy+Math.sin(a)*r-NODES[i].h/2;
+  }
+  agentX=NODES[0].x+NODES[0].w/2;
+  agentY=NODES[0].y+NODES[0].h/2;
+  agentTargetX=agentX; agentTargetY=agentY;
+}
+
+// ========== RENDERING ==========
+function hexToRgb(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`${r},${g},${b}`}
+const SCOLORS={crit:'#ff2828',high:'#ff7a00',med:'#e8c840',low:'#40c870'};
+
+function render(){
+  const W=canvas.width,H=canvas.height;
+  ctx.fillStyle='#020802';
+  ctx.fillRect(0,0,W,H);
+
+  ctx.setLineDash([4,4]);
+  ctx.strokeStyle='rgba(21,32,21,.8)';
+  ctx.lineWidth=1;
+  for(let i=0;i<NODES.length;i++){
+    for(let j=i+1;j<NODES.length;j++){
+      const a=NODES[i],b=NODES[j];
+      ctx.beginPath();
+      ctx.moveTo(a.x+a.w/2,a.y+a.h/2);
+      ctx.lineTo(b.x+b.w/2,b.y+b.h/2);
+      ctx.stroke();
+    }
+  }
+  ctx.setLineDash([]);
+
+  if(phase==='moving'){
+    ctx.strokeStyle='rgba(200,168,50,.2)';
+    ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.moveTo(agentX,agentY);
+    ctx.lineTo(agentTargetX,agentTargetY);
+    ctx.stroke();
+  }
+
+  for(const node of NODES){
+    const cx=node.x+node.w/2, cy=node.y+node.h/2;
+    const state=nodeStates[node.id]||'idle';
+
+    let borderColor='#152015';
+    let bgColor='rgba(13,26,14,.9)';
+    let glowColor=null;
+
+    if(state==='scanning'){borderColor='#c8a832';glowColor='rgba(200,168,50,.25)'}
+    else if(state==='risk'){borderColor=SCOLORS[highestSev(node)];glowColor=`rgba(${hexToRgb(SCOLORS[highestSev(node)])}, .15)`}
+    else if(state==='clean'){borderColor='#40c870';glowColor='rgba(64,200,112,.1)'}
+    else if(state==='skipped'){borderColor='#3d5040';glowColor=null}
+
+    if(glowColor){
+      const g=ctx.createRadialGradient(cx,cy,0,cx,cy,node.w*0.8);
+      g.addColorStop(0,glowColor);
+      g.addColorStop(1,'transparent');
+      ctx.fillStyle=g;
+      ctx.fillRect(node.x-20,node.y-20,node.w+40,node.h+40);
+    }
+
+    roundRect(ctx,node.x,node.y,node.w,node.h,4);
+    ctx.fillStyle=bgColor;
+    ctx.fill();
+    ctx.strokeStyle=borderColor;
+    ctx.lineWidth=state==='scanning'?1.5:1;
+    ctx.stroke();
+
+    if(state==='scanning'&&checkIdx>0&&currentChecks.length>0){
+      const prog=checkIdx/currentChecks.length;
+      ctx.fillStyle='rgba(200,168,50,.3)';
+      roundRect(ctx,node.x,node.y+node.h-4,node.w*prog,4,0);
+      ctx.fill();
+    }
+
+    ctx.font='bold 11px Exo 2';
+    ctx.fillStyle=state==='idle'?'#3d5040':state==='scanning'?'#c8a832':state==='risk'?SCOLORS[highestSev(node)]:state==='clean'?'#40c870':'#2a3a2a';
+    ctx.textAlign='center';
+    ctx.fillText(node.label,cx,node.y+22);
+
+    ctx.font='9px Share Tech Mono';
+    ctx.fillStyle='#3d5040';
+    ctx.fillText(node.sub,cx,node.y+35);
+
+    if(state==='risk'){
+      const nodeFds=findings.filter(f=>node.cfgKeys.includes(f.key));
+      const counts={crit:0,high:0,med:0,low:0};
+      nodeFds.forEach(f=>counts[f.sev]++);
+      let bx=node.x+4;
+      const by=node.y+node.h-14;
+      for(const sev of ['crit','high','med','low']){
+        if(counts[sev]>0){
+          ctx.fillStyle=SCOLORS[sev];
+          roundRect(ctx,bx,by,14,11,2);
+          ctx.fill();
+          ctx.font='bold 9px Share Tech Mono';
+          ctx.fillStyle='#000';
+          ctx.fillText(counts[sev],bx+7,by+8);
+          bx+=18;
+        }
+      }
+    }
+
+    if(state==='scanning'){
+      const prog=(Math.sin(animT*4)+1)/2;
+      ctx.strokeStyle=`rgba(200,168,50,${0.3*prog})`;
+      ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.arc(cx,cy,node.w*0.6+prog*10,0,Math.PI*2);
+      ctx.stroke();
+    }
+  }
+
+  for(let i=pings.length-1;i>=0;i--){
+    const p=pings[i];
+    const age=animT-p.t;
+    if(age>1.2){pings.splice(i,1);continue}
+    const alpha=(1-age/1.2)*0.6;
+    const radius=age*40;
+    ctx.strokeStyle=`rgba(${hexToRgb(SCOLORS[p.sev]||'#c8a832')},${alpha})`;
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,radius,0,Math.PI*2);
+    ctx.stroke();
+  }
+
+  if(phase!=='idle'){
+    const g=ctx.createRadialGradient(agentX,agentY,0,agentX,agentY,16);
+    g.addColorStop(0,'rgba(200,168,50,.5)');
+    g.addColorStop(1,'transparent');
+    ctx.fillStyle=g;
+    ctx.fillRect(agentX-16,agentY-16,32,32);
+    ctx.fillStyle='#f0c840';
+    ctx.beginPath();
+    ctx.arc(agentX,agentY,4,0,Math.PI*2);
+    ctx.fill();
+    const pp=(Math.sin(animT*6)+1)/2;
+    ctx.strokeStyle=`rgba(240,200,64,${0.4*pp})`;
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.arc(agentX,agentY,8+pp*4,0,Math.PI*2);
+    ctx.stroke();
+  }
+
+  drawRadar(W-50,36,28);
+}
+
+function highestSev(node){
+  const sevOrder=['crit','high','med','low'];
+  const nodeFds=findings.filter(f=>node.cfgKeys.includes(f.key));
+  for(const s of sevOrder){if(nodeFds.some(f=>f.sev===s))return s}
+  return 'low';
+}
+
+function drawRadar(cx,cy,r){
+  ctx.strokeStyle='rgba(200,168,50,.12)';
+  ctx.lineWidth=0.5;
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,r*0.5,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx-r,cy);ctx.lineTo(cx+r,cy);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx,cy-r);ctx.lineTo(cx,cy+r);ctx.stroke();
+  const sw=animT*2;
+  ctx.strokeStyle='rgba(48,224,96,.5)';
+  ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(cx,cy);
+  ctx.lineTo(cx+Math.cos(sw)*r,cy+Math.sin(sw)*r);ctx.stroke();
+  for(const n of NODES){
+    const bx=cx+(n.x+n.w/2-canvas.width/2)/canvas.width*r*2;
+    const by=cy+(n.y+n.h/2-canvas.height/2)/canvas.height*r*2;
+    const st=nodeStates[n.id]||'idle';
+    ctx.fillStyle=st==='risk'?'#ff2828':st==='clean'?'#40c870':st==='scanning'?'#c8a832':'#3d5040';
+    ctx.fillRect(bx-1.5,by-1.5,3,3);
+  }
+  ctx.fillStyle='#f0c840';
+  const ax=cx+(agentX-canvas.width/2)/canvas.width*r*2;
+  const ay=cy+(agentY-canvas.height/2)/canvas.height*r*2;
+  ctx.fillRect(ax-2,ay-2,4,4);
+}
+
+function roundRect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
+
+// ========== SCAN LOGIC ==========
+function getActiveConfigs(){
+  return Object.entries(CONFIGS).filter(([k,v])=>document.getElementById(v.id).checked);
+}
+
+function buildNodeQueue(){
+  return NODES.filter(node=>node.accels.some(i=>accels[i]));
+}
+
+function getNodeChecks(node){
+  const checks=[];
+  for(const [key,cfg] of Object.entries(CONFIGS)){
+    if(!node.cfgKeys.includes(key)) continue;
+    const accelOn=accels[cfg.accel];
+    const vuln=document.getElementById(cfg.id).checked;
+    if(vuln&&accelOn) checks.push({key,cfg,type:'finding'});
+    else if(vuln&&!accelOn) checks.push({key,cfg,type:'miss'});
+    else if(accelOn) checks.push({key,cfg,type:'clean'});
+  }
+  return checks;
+}
+
+function startScan(){
+  if(running){resetScan();return}
+  running=true; scanTime=0; scanIdx=0; findings=[]; misses=[];
+  nodesScanned=0; totalFindings=0; totalMissed=0;
+  nodeStates={};
+  nodeQueue=buildNodeQueue();
+  phase='moving';
+  document.getElementById('fCrit').textContent='0';
+  document.getElementById('fHigh').textContent='0';
+  document.getElementById('fMed').textContent='0';
+  document.getElementById('fLow').textContent='0';
+  document.getElementById('sMissed').textContent='0';
+  document.getElementById('sNodes').textContent=`0/${nodeQueue.length}`;
+  document.getElementById('sCov').textContent='--%';
+  document.getElementById('evList').innerHTML='';
+  document.getElementById('scoreNum').textContent='--';
+  document.getElementById('runBtn').textContent='&#9632; RESET';
+  document.getElementById('hudScan').textContent='SCANNING...';
+  pings=[];
+
+  if(nodeQueue.length>0) moveToNode(nodeQueue[0]);
+  logEv(`Scan initiated — ${nodeQueue.length} nodes queued`,'info');
+  const acOn=accels.filter(Boolean).length;
+  logEv(`Active accelerators: ${acOn}/6`,'info');
+}
+
+function resetScan(){
+  running=false; phase='idle'; scanIdx=0; nodeStates={};
+  findings=[]; misses=[];
+  document.getElementById('runBtn').textContent='&#9654; RUN SCAN';
+  document.getElementById('hudScan').textContent='IDLE';
+  agentX=NODES[0].x+NODES[0].w/2;
+  agentY=NODES[0].y+NODES[0].h/2;
+}
+
+function moveToNode(node){
+  phase='moving';
+  agentTargetX=node.x+node.w/2;
+  agentTargetY=node.y+node.h/2;
+  agentMoveT=0;
+}
+
+let moveStartX=0,moveStartY=0;
+const MOVE_DUR=0.6, CHECK_INTERVAL=0.4;
+
+function update(dt){
+  if(!running) return;
+  scanTime+=dt;
+  document.getElementById('hudTime').textContent=`T+${scanTime.toFixed(1)}s`;
+  document.getElementById('sTime').textContent=`${scanTime.toFixed(1)}s`;
+
+  if(phase==='moving'){
+    agentMoveT+=dt;
+    const t=Math.min(1,agentMoveT/MOVE_DUR);
+    const ease=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+    if(agentMoveT<=0.01){moveStartX=agentX;moveStartY=agentY}
+    agentX=moveStartX+(agentTargetX-moveStartX)*ease;
+    agentY=moveStartY+(agentTargetY-moveStartY)*ease;
+    if(t>=1){
+      agentX=agentTargetX;agentY=agentTargetY;
+      const node=nodeQueue[scanIdx];
+      if(node){
+        nodeStates[node.id]='scanning';
+        currentChecks=getNodeChecks(node);
+        checkIdx=0;
+        scanDelay=0;
+        phase='scanning';
+        document.getElementById('hudNode').textContent=`NODE: ${node.label.toUpperCase()}`;
+        logEv(`Scanning ${node.label} (${node.sub})...`,'info');
+      }
+    }
+  }else if(phase==='scanning'){
+    scanDelay+=dt;
+    if(scanDelay>=CHECK_INTERVAL&&checkIdx<currentChecks.length){
+      scanDelay=0;
+      const check=currentChecks[checkIdx];
+      checkIdx++;
+      processCheck(nodeQueue[scanIdx],check);
+    }
+    if(checkIdx>=currentChecks.length&&scanDelay>=CHECK_INTERVAL*0.5){
+      const node=nodeQueue[scanIdx];
+      const hadFindings=findings.some(f=>node.cfgKeys.includes(f.key));
+      const wasSkipped=!node.accels.some(i=>accels[i]);
+      nodeStates[node.id]=wasSkipped?'skipped':hadFindings?'risk':'clean';
+      nodesScanned++;
+      document.getElementById('sNodes').textContent=`${nodesScanned}/${nodeQueue.length}`;
+      scanIdx++;
+      if(scanIdx<nodeQueue.length){
+        moveToNode(nodeQueue[scanIdx]);
+      }else{
+        phase='done';
+        finalizeScan();
+      }
+    }
+  }
+
+  if(phase==='done'||phase==='idle'){
+    agentX+=(agentTargetX-agentX)*0.1;
+    agentY+=(agentTargetY-agentY)*0.1;
+  }
+}
+
+function processCheck(node,check){
+  const {key,cfg,type}=check;
+  const ncx=node.x+node.w/2, ncy=node.y+node.h/2;
+  if(type==='finding'){
+    findings.push({key,sev:cfg.sev,label:cfg.label,detail:cfg.detail,node:node.id});
+    totalFindings++;
+    updateFindCounts();
+    pings.push({x:ncx,y:ncy,t:animT,sev:cfg.sev});
+    logEv(`[${cfg.sev.toUpperCase()}] ${cfg.label}`,cfg.sev);
+  }else if(type==='miss'){
+    misses.push({key,cfg});
+    totalMissed++;
+    document.getElementById('sMissed').textContent=totalMissed;
+    logEv(`[MISS] ${cfg.label} — accel disabled`,'med');
+  }else if(type==='clean'){
+    if(Math.random()<0.4) logEv(`[OK] ${cfg.label.split(' ')[0]} check passed`,'ok');
+  }
+}
+
+function updateFindCounts(){
+  const c={crit:0,high:0,med:0,low:0};
+  findings.forEach(f=>c[f.sev]++);
+  document.getElementById('fCrit').textContent=c.crit;
+  document.getElementById('fHigh').textContent=c.high;
+  document.getElementById('fMed').textContent=c.med;
+  document.getElementById('fLow').textContent=c.low;
+}
+
+function finalizeScan(){
+  running=false;
+  document.getElementById('runBtn').textContent='&#9654; RUN SCAN';
+  document.getElementById('hudScan').textContent='COMPLETE';
+
+  const allVulns=getActiveConfigs();
+  const catchable=allVulns.filter(([k,v])=>accels[v.accel]);
+  const caught=findings.length;
+  const total=allVulns.length;
+  const score=total===0?100:Math.round((caught/total)*100);
+  const coverage=total===0?100:Math.round((catchable.length/Math.max(1,total))*100);
+
+  document.getElementById('scoreNum').textContent=score;
+  document.getElementById('scoreNum').style.color=score>=80?'var(--safe)':score>=50?'var(--med)':'var(--crit)';
+  document.getElementById('sCov').textContent=`${coverage}%`;
+
+  logEv(`Scan complete — ${findings.length} findings, ${misses.length} missed`,'info');
+
+  const grade=score>=95?'S — EXCEPTIONAL':score>=80?'A — EFFECTIVE':score>=65?'B — ADEQUATE':score>=45?'C — MARGINAL':'F — CRITICAL GAPS';
+  document.getElementById('mScore').textContent=score;
+  document.getElementById('mScore').style.color=score>=80?'var(--safe)':score>=50?'var(--med)':'var(--crit)';
+  document.getElementById('mGrade').textContent=grade;
+  document.getElementById('mGrade').style.color=score>=80?'var(--safe)':score>=50?'var(--med)':'var(--crit)';
+
+  const crit=findings.filter(f=>f.sev==='crit').length;
+  const high=findings.filter(f=>f.sev==='high').length;
+  document.getElementById('mGrid').innerHTML=`
+    <div class="mk">Total vulnerabilities</div><div class="mv">${total}</div>
+    <div class="mk">Findings detected</div><div class="mv" style="color:var(--safe)">${caught}</div>
+    <div class="mk">Missed (accel off)</div><div class="mv" style="color:var(--crit)">${misses.length}</div>
+    <div class="mk">Critical findings</div><div class="mv" style="color:var(--crit)">${crit}</div>
+    <div class="mk">High findings</div><div class="mv" style="color:var(--high)">${high}</div>
+    <div class="mk">Nodes scanned</div><div class="mv">${nodesScanned}/${nodeQueue.length}</div>
+    <div class="mk">Detection rate</div><div class="mv">${score}%</div>
+    <div class="mk">Scan time</div><div class="mv">${scanTime.toFixed(1)}s</div>
+  `;
+
+  if(misses.length>0){
+    document.getElementById('mMisses').style.display='block';
+    document.getElementById('mMissList').innerHTML=misses.map(m=>`<div class="miss-item">&#9888; ${m.cfg.label}</div>`).join('');
+  }else{
+    document.getElementById('mMisses').style.display='none';
+  }
+
+  setTimeout(()=>document.getElementById('modal').style.display='flex',600);
+}
+
+function logEv(msg,type='info'){
+  const el=document.getElementById('evList');
+  const div=document.createElement('div');
+  div.className=`ev ${type}`;
+  const ts=scanTime.toFixed(1);
+  div.textContent=`[${ts}s] ${msg}`;
+  el.prepend(div);
+  if(el.children.length>60) el.lastChild.remove();
+}
+
+// ========== MAIN LOOP ==========
+function loop(t){
+  const dt=Math.min(0.1,(t-lastT)/1000);
+  lastT=t; animT+=dt;
+  if(running) update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+
+// ========== PRESET LOGIC ==========
+function applyPreset(name){
+  const allKeys=Object.keys(CONFIGS);
+  allKeys.forEach(k=>{
+    document.getElementById(CONFIGS[k].id).checked=false;
+    const row=document.getElementById(`row-${k}`);
+    if(row) row.classList.remove('enabled');
+  });
+  const on=PRESETS[name]||[];
+  on.forEach(k=>{
+    if(CONFIGS[k]){
+      document.getElementById(CONFIGS[k].id).checked=true;
+      const row=document.getElementById(`row-${k}`);
+      if(row) row.classList.add('enabled');
+    }
+  });
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.toggle('active',b.dataset.p===name));
+}
+
+// ========== ACCELERATOR TOGGLES ==========
+document.querySelectorAll('.accel').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const idx=+btn.dataset.idx;
+    accels[idx]=!accels[idx];
+    btn.classList.toggle('on',accels[idx]);
+    logEv(`Accelerator ${['A1','A2','A3','A5','A7','A8'][idx]} ${accels[idx]?'enabled':'disabled'}`,accels[idx]?'ok':'med');
+    updateAccelHud();
+  });
+});
+
+function updateAccelHud(){
+  const names=['A1','A2','A3','A5','A7','A8'];
+  const on=names.filter((_,i)=>accels[i]);
+  document.getElementById('hudAccel').textContent=`ACTIVE: ${on.join(' · ')||'NONE'}`;
+}
+
+// ========== TOGGLE SYNC ==========
+Object.entries(CONFIGS).forEach(([key,cfg])=>{
+  document.getElementById(cfg.id).addEventListener('change',e=>{
+    const row=document.getElementById(`row-${key}`);
+    if(row) row.classList.toggle('enabled',e.target.checked);
+    document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  });
+});
+
+// ========== BUTTONS ==========
+document.getElementById('runBtn').addEventListener('click',startScan);
+document.querySelectorAll('.preset-btn').forEach(b=>b.addEventListener('click',()=>applyPreset(b.dataset.p)));
+
+// ========== KEYBOARD ==========
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT') return;
+  if(e.code==='Space'){e.preventDefault();startScan()}
+  if(e.key>='1'&&e.key<='6'){const i=+e.key-1;accels[i]=!accels[i];document.querySelectorAll('.accel')[i].classList.toggle('on',accels[i]);updateAccelHud()}
+  if(e.key==='n'||e.key==='N') applyPreset('nightmare');
+  if(e.key==='c'||e.key==='C') applyPreset('clean');
+});
+
+// ========== CLOCK ==========
+setInterval(()=>{
+  const d=new Date();
+  document.getElementById('clock').textContent=[d.getHours(),d.getMinutes(),d.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':');
+},1000);
+
+// ========== RESIZE ==========
+window.addEventListener('resize',()=>{layoutNodes();if(!running){agentX=NODES[0].x+NODES[0].w/2;agentY=NODES[0].y+NODES[0].h/2}});
+
+// ========== LIVE API POLLING ==========
+let liveMode = false;
+let lastScanId = null;
+
+function applyLiveResults(data) {
+  if (!data || !data.findings) return;
+
+  // Lock toggles to real findings
+  const allKeys = Object.keys(CONFIGS);
+  allKeys.forEach(k => {
+    const val = data.findings[k] === true;
+    document.getElementById(CONFIGS[k].id).checked = val;
+    const row = document.getElementById(`row-${k}`);
+    if (row) row.classList.toggle('enabled', val);
+  });
+
+  // Update header status badge
+  const badge = document.querySelector('.pulse');
+  if (data.status === 'scanning') {
+    badge.style.color = 'var(--med)';
+    badge.textContent = '● SCANNING';
+    document.getElementById('hudScan').textContent = `LIVE — ${data.current_node || '...'}`;
+  } else if (data.status === 'complete') {
+    badge.style.color = 'var(--safe)';
+    badge.textContent = '● LIVE';
+    document.getElementById('hudScan').textContent = 'LIVE DATA';
+  }
+
+  // Show meta in HUD
+  const m = data.meta || {};
+  if (m.host) document.getElementById('hudNode').textContent = `HOST: ${m.host}`;
+
+  // Update preset buttons to show live state
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+
+  liveMode = true;
+  const tag = document.getElementById('liveTag');
+  if (tag) { tag.textContent = 'LIVE'; tag.style.color = 'var(--safe)'; tag.style.borderColor = 'var(--safe)'; }
+
+  // Auto-run scan if new completed result arrived
+  if (data.status === 'complete' && data.scan_id !== lastScanId && !running) {
+    lastScanId = data.scan_id;
+    logEv(`Live data loaded: ${data.client} @ ${data.scanned_at}`, 'ok');
+    logEv(`Host: ${m.host || '?'} | OS: ${m.os || '?'} | CIS: ${m.cis_score || '?'}`, 'info');
+    logEv(`Net risk: ${m.network_risk || '?'} | AI: ${m.ai_readiness || '?'}`, 'info');
+    setTimeout(startScan, 400); // short delay then animate
+  }
+}
+
+async function pollLatest() {
+  try {
+    const res = await fetch('/api/latest');
+    if (res.ok) {
+      const data = await res.json();
+      applyLiveResults(data);
+    }
+  } catch (e) {
+    // Server unreachable or no data yet — stay in demo mode
+  }
+}
+
+// Poll every 4 seconds
+setInterval(pollLatest, 4000);
+// Also check immediately on load
+pollLatest();
+
+// ========== INIT ==========
+layoutNodes();
+applyPreset('harsh');
+updateAccelHud();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

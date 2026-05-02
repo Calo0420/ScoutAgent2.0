@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ScoutAgent 2.0 — Sales Playbook | Everforth</title>
+<style>
+/* ── Base Variables ── */
+:root {
+  --bg: #050d05;
+  --surface: #091209;
+  --surface2: #0d1a0e;
+  --border: #162416;
+  --border2: #1e341e;
+  --text: #b8ccb0;
+  --text-muted: #4a6050;
+  --text-bright: #d4e8cc;
+  --accent: #2dd4a0;
+  --accent2: #1aaa7a;
+  --accent-dim: rgba(45,212,160,.15);
+  --gold: #d4a840;
+  --gold-dim: rgba(212,168,64,.12);
+  --warn: #e8c840;
+  --danger: #ff4444;
+  --code-bg: #060f07;
+  --nav-width: 260px;
+  --heading-font: 'Segoe UI', system-ui, sans-serif;
+  --mono-font: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+}
+
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--heading-font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.7;
+  font-size: 15px;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent2); }
+
+/* ── Layout ── */
+.layout { display: flex; min-height: 100vh; }
+
+/* ── Sidebar ── */
+.sidebar {
+  width: var(--nav-width);
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  position: fixed;
+  top: 0; left: 0;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+}
+
+.sidebar-brand {
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sidebar-brand .product {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-family: var(--mono-font);
+}
+
+.sidebar-brand .edition {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  margin-top: 3px;
+}
+
+.sidebar-brand .company {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+nav { padding: 12px 0; flex: 1; }
+
+nav a {
+  display: block;
+  padding: 7px 18px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-decoration: none;
+  letter-spacing: 0.5px;
+  border-left: 2px solid transparent;
+  transition: all 0.15s;
+}
+
+nav a:hover {
+  color: var(--gold);
+  border-left-color: var(--gold);
+  background: var(--gold-dim);
+}
+
+nav .nav-section {
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 14px 18px 5px;
+  opacity: 0.6;
+}
+
+.sidebar-footer {
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  line-height: 1.5;
+}
+
+/* ── Print Button ── */
+.print-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: calc(100% - 36px);
+  margin: 0 18px 12px;
+  padding: 8px 12px;
+  background: var(--gold-dim);
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-align: center;
+  justify-content: center;
+  font-family: var(--heading-font);
+  transition: all 0.2s;
+}
+.print-btn:hover { background: rgba(212,168,64,.22); }
+
+/* ── Main Content ── */
+.main {
+  margin-left: var(--nav-width);
+  flex: 1;
+  max-width: 860px;
+  padding: 48px 56px;
+}
+
+/* ── Doc Header ── */
+.doc-header {
+  margin-bottom: 48px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--border2);
+}
+
+.doc-header .tag {
+  display: inline-block;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  padding: 3px 10px;
+  border-radius: 2px;
+  margin-bottom: 14px;
+  font-family: var(--mono-font);
+}
+
+.doc-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-bright);
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+  margin-bottom: 10px;
+}
+
+.doc-header .meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.doc-header .meta span { margin-right: 20px; }
+
+/* ── Sections ── */
+section { margin-bottom: 56px; }
+
+h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--gold);
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border2);
+  letter-spacing: -0.3px;
+  scroll-margin-top: 24px;
+}
+
+h2 .section-num {
+  font-family: var(--mono-font);
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-right: 10px;
+}
+
+h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-bright);
+  margin: 28px 0 12px;
+  letter-spacing: 0.2px;
+}
+
+h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold);
+  margin: 20px 0 8px;
+  font-family: var(--mono-font);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+p { margin-bottom: 14px; color: var(--text); }
+
+/* ── Script Block (memorize-this pitch) ── */
+.script-block {
+  background: linear-gradient(135deg, var(--surface2) 0%, rgba(212,168,64,.06) 100%);
+  border: 1px solid var(--gold);
+  border-left: 4px solid var(--gold);
+  border-radius: 4px;
+  padding: 20px 24px;
+  margin: 20px 0;
+  font-size: 15px;
+  font-style: italic;
+  line-height: 1.8;
+  color: var(--text-bright);
+  position: relative;
+}
+
+.script-block::before {
+  content: 'SCRIPT';
+  position: absolute;
+  top: -1px;
+  right: 16px;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 2px;
+  font-family: var(--mono-font);
+  color: var(--gold);
+  background: var(--bg);
+  padding: 0 8px;
+  border: 1px solid var(--gold);
+  border-top: none;
+  border-radius: 0 0 3px 3px;
+}
+
+/* ── Say This / Not This Blocks ── */
+.say-this {
+  background: rgba(45,212,160,.05);
+  border: 1px solid var(--accent2);
+  border-left: 3px solid var(--accent);
+  border-radius: 3px;
+  padding: 12px 16px;
+  margin: 12px 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.say-this::before {
+  content: 'SAY: ';
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--accent);
+  font-family: var(--mono-font);
+}
+
+.not-this {
+  background: rgba(255,68,68,.05);
+  border: 1px solid rgba(255,68,68,.4);
+  border-left: 3px solid var(--danger);
+  border-radius: 3px;
+  padding: 12px 16px;
+  margin: 12px 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.not-this::before {
+  content: 'AVOID: ';
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--danger);
+  font-family: var(--mono-font);
+}
+
+/* ── Tables ── */
+.table-wrap { overflow-x: auto; margin: 20px 0; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+thead th {
+  background: var(--surface2);
+  color: var(--gold);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 9px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border2);
+  font-weight: 700;
+}
+
+tbody td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+tbody tr:hover { background: rgba(212,168,64,.03); }
+
+/* ── Checklists ── */
+.checklist { list-style: none; padding-left: 0; margin: 14px 0; }
+.checklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.checklist li:last-child { border-bottom: none; }
+.checklist li::before {
+  content: '☐';
+  color: var(--gold);
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: -1px;
+}
+
+/* ── Code ── */
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border2);
+  border-left: 3px solid var(--accent2);
+  border-radius: 4px;
+  padding: 16px 18px;
+  overflow-x: auto;
+  margin: 16px 0;
+  font-family: var(--mono-font);
+  font-size: 13px;
+  line-height: 1.6;
+  color: #a8d8a0;
+}
+
+code {
+  font-family: var(--mono-font);
+  font-size: 12.5px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: var(--accent);
+}
+
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* ── Callout Boxes ── */
+.callout {
+  border-radius: 4px;
+  padding: 14px 18px;
+  margin: 18px 0;
+  font-size: 13px;
+  border: 1px solid;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.callout-icon { flex-shrink: 0; font-size: 16px; margin-top: 1px; }
+
+.callout.note {
+  background: rgba(45,212,160,.06);
+  border-color: var(--accent2);
+  color: var(--text);
+}
+
+.callout.gold {
+  background: rgba(212,168,64,.07);
+  border-color: var(--gold);
+  color: var(--text);
+}
+
+.callout.danger {
+  background: rgba(255,68,68,.06);
+  border-color: var(--danger);
+  color: var(--text);
+}
+
+/* ── Q&A / Objection Blocks ── */
+.objection {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  margin: 24px 0;
+  overflow: hidden;
+}
+
+.objection-q {
+  background: var(--surface2);
+  padding: 14px 18px;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-bright);
+  border-bottom: 1px solid var(--border2);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.objection-q::before {
+  content: 'Q';
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: var(--gold-dim);
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gold);
+  font-family: var(--mono-font);
+  flex-shrink: 0;
+}
+
+.objection-a {
+  padding: 14px 18px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+/* ── Quick Reference Card ── */
+.ref-card {
+  background: var(--surface);
+  border: 2px solid var(--gold);
+  border-radius: 6px;
+  padding: 28px 32px;
+  margin: 24px 0;
+}
+
+.ref-card-title {
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-family: var(--mono-font);
+  margin-bottom: 20px;
+  text-align: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border2);
+}
+
+/* ── Lists ── */
+ul, ol { padding-left: 24px; margin-bottom: 14px; }
+li { margin-bottom: 5px; color: var(--text); }
+
+/* ── Separator ── */
+hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+
+/* ── Persona Cards ── */
+.persona-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+.persona-card {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 16px 18px;
+}
+.persona-card .persona-title {
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-family: var(--mono-font);
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.persona-card ul { padding-left: 14px; }
+.persona-card li { font-size: 12px; margin-bottom: 4px; }
+
+/* ── Footer ── */
+.doc-footer {
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── PRINT STYLES ── */
+@media print {
+  :root {
+    --bg: #fff;
+    --surface: #f8f8f8;
+    --surface2: #f0f0f0;
+    --border: #ddd;
+    --border2: #ccc;
+    --text: #222;
+    --text-muted: #666;
+    --text-bright: #111;
+    --accent: #0a7a5a;
+    --accent2: #0a7a5a;
+    --accent-dim: rgba(10,122,90,.08);
+    --gold: #8a6010;
+    --gold-dim: rgba(138,96,16,.08);
+    --code-bg: #f5f5f5;
+  }
+
+  body { font-size: 12pt; line-height: 1.6; }
+
+  .sidebar { display: none; }
+  .print-btn { display: none; }
+
+  .main {
+    margin-left: 0;
+    padding: 0;
+    max-width: 100%;
+  }
+
+  .doc-header { margin-bottom: 24pt; }
+  .doc-header h1 { font-size: 20pt; }
+
+  h2 { font-size: 14pt; page-break-after: avoid; }
+  h3 { font-size: 12pt; page-break-after: avoid; }
+
+  .script-block {
+    background: #fafaf5;
+    border: 1px solid #999;
+    border-left: 4px solid #8a6010;
+    page-break-inside: avoid;
+  }
+
+  .script-block::before {
+    background: #fff;
+    color: #8a6010;
+    border-color: #8a6010;
+  }
+
+  .say-this, .not-this {
+    background: #fafafa;
+    border: 1px solid #ccc;
+    page-break-inside: avoid;
+  }
+
+  .objection {
+    background: #fafafa;
+    border: 1px solid #ccc;
+    page-break-inside: avoid;
+  }
+
+  .ref-card {
+    background: #fafafa;
+    border: 2px solid #8a6010;
+    page-break-inside: avoid;
+  }
+
+  .persona-grid { grid-template-columns: 1fr 1fr; }
+  .persona-card { background: #fafafa; border: 1px solid #ccc; }
+
+  pre {
+    background: #f5f5f5;
+    border: 1px solid #ccc;
+    border-left: 3px solid #0a7a5a;
+    font-size: 10pt;
+  }
+
+  table { page-break-inside: auto; font-size: 10pt; }
+  tr { page-break-inside: avoid; }
+  thead { display: table-header-group; }
+
+  section { page-break-inside: avoid; }
+
+  .checklist li::before { content: '[ ]'; color: #8a6010; }
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+<!-- SIDEBAR NAV -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="product">ScoutAgent 2.0</div>
+    <div class="edition">Sales Playbook</div>
+    <div class="company">Everforth | An Apex Systems Company</div>
+  </div>
+
+  <nav>
+    <div class="nav-section">Contents</div>
+    <a href="#section-1">1. Your 30-Second Pitch</a>
+    <a href="#section-2">2. Before the Meeting</a>
+    <a href="#section-3">3. Running the Demo</a>
+    <a href="#section-4">4. Walking the Report</a>
+    <a href="#section-5">5. Handling Objections</a>
+    <a href="#section-6">6. Closing</a>
+    <a href="#section-7">7. Quick Reference Card</a>
+  </nav>
+
+  <button class="print-btn" onclick="window.print()">&#128438; Print / Save as PDF</button>
+
+  <div class="sidebar-footer">
+    Everforth Infrastructure Practice<br>
+    An Apex Systems Company<br>
+    Internal Use Only
+  </div>
+</aside>
+
+<!-- MAIN CONTENT -->
+<main class="main">
+
+  <div class="doc-header">
+    <div class="tag">Sales Playbook</div>
+    <h1>ScoutAgent 2.0<br>Sales &amp; Demo Playbook</h1>
+    <div class="meta">
+      <span>Everforth (an Apex Systems company)</span>
+      <span>Infrastructure Practice</span>
+      <span>For Internal Use Only — Not for Client Distribution</span>
+    </div>
+  </div>
+
+  <!-- SECTION 1 -->
+  <section id="section-1">
+    <h2><span class="section-num">01</span>Your 30-Second Pitch</h2>
+
+    <p>Memorize this. Practice it until it is completely natural. Use it verbatim.</p>
+
+    <div class="script-block">
+      "Most clients know they have technical debt and security gaps — they just don't know where or how much it's costing them. ScoutAgent connects to your infrastructure, reads everything in a single pass, and produces a board-ready report in under ten minutes. It finds the specific servers with security holes, calculates the exact cost of your VMware licensing waste, and gives you a 90-day roadmap to fix it — all without touching a single configuration. We use it to walk every new client through exactly what they have before we propose anything. Want to see it run on a demo environment right now?"
+    </div>
+
+    <div class="callout gold">
+      <span class="callout-icon">&#9733;</span>
+      <div>
+        <strong>Why this works:</strong> Opens with the client's pain ("know they have technical debt"). States a specific, remarkable outcome ("board-ready report in under ten minutes"). Anchors to money ("exact cost") and risk ("specific servers with security holes"). Ends with a direct invitation to see it in action.
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 2 -->
+  <section id="section-2">
+    <h2><span class="section-num">02</span>Before the Meeting</h2>
+
+    <h3>48 Hours Before</h3>
+    <ul class="checklist">
+      <li>Confirm who is in the room. Know before you walk in: who is the CIO, who is the CFO, who is the CISO or security lead. Each person needs to hear a different thing from the report (covered in Section 4).</li>
+      <li>Review the client's industry. Healthcare and finance clients will ask about data privacy first — have the Bedrock/air-gap story ready. See Section 5.</li>
+      <li>Print or save a copy of the sample report. Bring it as a leave-behind.</li>
+    </ul>
+
+    <h3>Day of Meeting</h3>
+    <ul class="checklist">
+      <li>Open your laptop. Have a terminal window ready with ScoutAgent ready to run.</li>
+      <li>Run the demo once before the meeting to confirm it still works: <code>python3 agent.py --demo</code></li>
+      <li>Confirm <code>DEMO_MODE=true</code> is set in <code>.env</code>. You do not want a live scan running during a demo — it will be slower and may fail if target credentials are not configured.</li>
+      <li>Have the report open in a readable format (the UI at <code>http://localhost:7070</code> or the Markdown file rendered in a viewer).</li>
+      <li>Close all other applications. Full screen is more compelling. No notifications.</li>
+      <li>Have this question ready to ask early: "Before I show you the demo — what does your current infrastructure assessment process look like today?" Their answer will tell you exactly which parts of the report to emphasize.</li>
+    </ul>
+
+    <h3>What to Bring</h3>
+    <ul class="checklist">
+      <li>Laptop with ScoutAgent running (demo mode verified)</li>
+      <li>Printed sample report (1 copy per attendee is ideal)</li>
+      <li>One-page capability overview (ask your manager for the current version)</li>
+      <li>Business cards</li>
+    </ul>
+  </section>
+
+  <!-- SECTION 3 -->
+  <section id="section-3">
+    <h2><span class="section-num">03</span>Running the Demo</h2>
+
+    <h3>Setting the Stage</h3>
+    <p>Before you type anything, say this:</p>
+
+    <div class="script-block">
+      "What I'm going to do is run ScoutAgent against a demo environment we use for exactly this purpose — it has a typical mid-size company's infrastructure profile: a few Linux servers, a VMware cluster, and a network segment. The vulnerabilities and cost issues are realistic. It'll take about 60 seconds to run, and then I'll walk you through what it found."
+    </div>
+
+    <p>This framing does three things: it explains the demo, it sets a realistic time expectation, and it tells them the findings are realistic (not toy examples).</p>
+
+    <h3>The Command to Type</h3>
+    <pre><code>python3 agent.py --demo</code></pre>
+
+    <p>Type it slowly and clearly. Say it out loud as you type:</p>
+    <div class="say-this">"This is the only command you need to run. One line. ScoutAgent handles everything from here."</div>
+
+    <h3>While It Runs — What to Say</h3>
+    <p>As the agent runs, narrate what is happening at a high level. Do not explain technical details. Use language like:</p>
+    <ul>
+      <li>"It's connecting to the servers now and reading the configuration..."</li>
+      <li>"Now it's checking the security benchmarks — there's a set of CIS controls it tests against..."</li>
+      <li>"This part is the VMware scan — it's reading the virtual machine inventory from vCenter..."</li>
+      <li>"And now the AI is synthesizing all of it into the report..."</li>
+    </ul>
+
+    <h3>What NOT to Say</h3>
+    <div class="not-this">Do not say "Claude" or "Anthropic" unless asked. Say "the AI" or "the AI engine." Some clients have vendor preferences or procurement sensitivities.</div>
+    <div class="not-this">Do not say "it might not find anything" or hedge the demo outcome. The demo environment is configured to have findings.</div>
+    <div class="not-this">Do not apologize for the terminal. If someone looks confused by the command line, say: "This is what your IT team runs — what I'm showing you is the output they hand to leadership."</div>
+    <div class="not-this">Do not try to explain paramiko, pyVmomi, or nmap unless someone explicitly asks how the scans work technically.</div>
+
+    <h3>When It Finishes</h3>
+    <p>The demo completes in approximately 60–90 seconds. When you see the report generate, say:</p>
+    <div class="say-this">"There it is. Sixty seconds. Let me show you what's in here."</div>
+    <p>Then move to Section 4.</p>
+  </section>
+
+  <!-- SECTION 4 -->
+  <section id="section-4">
+    <h2><span class="section-num">04</span>Walking the Client Through the Report</h2>
+
+    <p>Different people in the room need to hear different things. Here is exactly what to emphasize for each audience.</p>
+
+    <h3>Tailoring by Persona</h3>
+
+    <div class="persona-grid">
+      <div class="persona-card">
+        <div class="persona-title">CIO</div>
+        <ul>
+          <li>Executive Summary first</li>
+          <li>Migration Roadmap second</li>
+          <li>Risk rating + top 3 priorities</li>
+          <li>Effort estimates, fixed scope</li>
+        </ul>
+      </div>
+      <div class="persona-card">
+        <div class="persona-title">CFO</div>
+        <ul>
+          <li>Savings Estimate (Section 4)</li>
+          <li>License Cost Comparison (Section 5)</li>
+          <li>Annual savings number first</li>
+          <li>Confidence level, 3-year projection</li>
+        </ul>
+      </div>
+      <div class="persona-card">
+        <div class="persona-title">CISO</div>
+        <ul>
+          <li>Risk Map (Section 3) first</li>
+          <li>Critical findings with host names</li>
+          <li>Finding combinations</li>
+          <li>Remediation windows, CIS scores</li>
+        </ul>
+      </div>
+      <div class="persona-card">
+        <div class="persona-title">IT Manager</div>
+        <ul>
+          <li>Server Inventory (Section 2)</li>
+          <li>Migration Roadmap detail</li>
+          <li>Hour estimates per phase</li>
+          <li>Out-of-scope table</li>
+        </ul>
+      </div>
+    </div>
+
+    <hr>
+
+    <h3>For the CIO</h3>
+    <p><strong>Focus on:</strong> Executive Summary and Migration Roadmap.</p>
+    <div class="say-this">"This first section is written specifically for a CIO — no technical jargon. It tells you the overall risk rating, the top three things that need action, and what each one will cost to fix. Everything else in this report is evidence supporting these three priorities. You shouldn't need to read past page two unless you want the detail."</div>
+
+    <p>Then point to the top priority recommendation:</p>
+    <div class="say-this">"This is the first thing we'd tackle. Here's why it matters from a business perspective — [read the business impact, not the technical detail]. The effort estimate is right here. This is a fixed-scope engagement, not open-ended."</div>
+
+    <p><strong>Language to use:</strong> Risk exposure, business continuity, timeline, effort estimate, fixed scope.</p>
+    <div class="not-this">Kernel versions, SSH configuration, CVE numbers.</div>
+
+    <hr>
+
+    <h3>For the CFO</h3>
+    <p><strong>Focus on:</strong> Savings Estimate and License Cost Comparison.</p>
+    <div class="say-this">"This section is the financial case. The agent found [X] virtual machines that are powered off but still consuming VMware licenses. That's [dollar amount] per year in pure waste — nothing needs to be migrated, just decommissioned. That's the conservative number. This column here shows the moderate scenario, which includes rightsizing the oversized VMs. And the aggressive column includes migration-eligible Windows servers moving to Linux."</div>
+
+    <p>Then point to the confidence level:</p>
+    <div class="say-this">"We're transparent about confidence. High confidence means we had complete data. Medium means we estimated some numbers — you'll see the assumptions noted. We don't give you a number we can't stand behind."</div>
+
+    <p><strong>Language to use:</strong> Annual savings, break-even, confidence level, 3-year projection, recoverable budget.</p>
+    <div class="not-this">VMware licenses (say "virtualization licensing"), vCPU count, technical migration complexity.</div>
+
+    <hr>
+
+    <h3>For the CISO</h3>
+    <p><strong>Focus on:</strong> Risk Map.</p>
+    <div class="say-this">"The risk register lists every security finding with a likelihood score, an impact score, and a combined rating. These are not theoretical vulnerabilities — each one is tied to a specific host. Critical findings are scored 20 to 25, high is 12 to 19. We highlight two things immediately: any Critical finding needs a scheduled remediation window this week, and we flag any finding combinations that are more dangerous together than apart."</div>
+
+    <p>Then point to any critical finding:</p>
+    <div class="say-this">"This one — root SSH is enabled on this host. That alone is a high finding. But paired with auditd being disabled on the same host, you have an active attack vector with no logging. That means if someone exploits it today, you won't know until damage is done. That's why it's flagged as a combination risk."</div>
+
+    <p><strong>Language to use:</strong> Risk rating, attack vector, exploit, remediation window, audit trail, CIS benchmark compliance, logging baseline.</p>
+    <div class="not-this">"This is easy to fix" (let them ask). Do not downplay Critical findings.</div>
+
+    <hr>
+
+    <h3>For the IT Manager / Technical Lead</h3>
+    <p><strong>Focus on:</strong> Server Inventory and Migration Roadmap detail.</p>
+    <div class="say-this">"The inventory table is a complete asset register — every server we touched, fully documented. The flags in red are your immediate action items. Each flag type is defined consistently: PATCH GAP means it hasn't been patched in more than 60 days, STABILITY RISK means it hasn't been rebooted in more than 90 days."</div>
+    <div class="say-this">"Phase 1 is security hardening — 30 days, specific servers listed, hour estimates included. Phase 2 is stabilization. Phase 3 is where migration begins. The out-of-scope table at the end is as important as the roadmap itself — it shows what we're not touching and why."</div>
+  </section>
+
+  <!-- SECTION 5 -->
+  <section id="section-5">
+    <h2><span class="section-num">05</span>Handling Objections</h2>
+
+    <div class="objection">
+      <div class="objection-q">"Is our data safe?"</div>
+      <div class="objection-a">
+        <p>That's exactly the right question to ask. ScoutAgent gives you three deployment options precisely because of this concern. The default mode sends findings to the Anthropic API over encrypted HTTPS — similar to how you'd use any secure cloud service. But if you have data residency requirements or a compliance program that doesn't allow data leaving your environment, we run it in AWS Bedrock mode, where everything stays within your own AWS account. Nothing leaves your cloud. And if you're in an air-gapped environment with no internet access at all, we have an on-premises mode using a local AI model. The assessment runs completely inside your four walls. You pick the mode that fits your security policy.</p>
+      </div>
+    </div>
+
+    <div class="objection">
+      <div class="objection-q">"How is this different from what we already have?"</div>
+      <div class="objection-a">
+        <p>Great question — and the short answer is that ScoutAgent is not a vulnerability scanner. Traditional tools give you a list of CVEs. ScoutAgent gives you a board-ready business document. It connects the technical findings to dollar amounts, risk ratings, and a specific 90-day action plan written for leadership, not for the IT team. The IT team already has the scanner output — what the CIO and CFO need is something they can act on without a 10-hour technical translation exercise. That's what ScoutAgent produces, and it does it in minutes, not weeks.</p>
+        <p><em>If they press for more technical comparison:</em> "Think of it this way: a scanner finds the vulnerability. ScoutAgent answers the question 'so what does this mean for the business, and what are we going to do about it?' Different tools, different audiences."</p>
+      </div>
+    </div>
+
+    <div class="objection">
+      <div class="objection-q">"What does implementation look like?"</div>
+      <div class="objection-a">
+        <p>There's almost nothing on your side to prepare. You need to give us a read-only SSH account on the Linux servers you want assessed — no sudo, no admin access, just read access. If you have VMware, a read-only vCenter account. That's it. We handle the rest. The assessment itself takes under 10 minutes and makes no changes to any of your systems. After the assessment, we present the report within 24 hours and walk your team through the findings. The first engagement is the assessment. Whether we do the remediation work or you handle it internally, you'll have a clear, prioritized plan either way.</p>
+      </div>
+    </div>
+
+    <div class="objection">
+      <div class="objection-q">"Can it run in our environment?"</div>
+      <div class="objection-a">
+        <p>Yes, in most cases. ScoutAgent needs TCP 22 to reach your Linux servers — standard SSH — and HTTPS to reach vCenter if you have VMware. If you're running in an air-gapped environment with no outbound internet, we use the on-premises Ollama mode — no external connectivity required at all. If you have strict data residency requirements, we use your own AWS account through Bedrock. The tool is designed to meet you where your security policy already is, not to require exceptions to it.</p>
+        <p><em>If they ask about specific Linux distributions:</em> "It works on any Linux distribution with standard SSH — RHEL, CentOS, Rocky, Ubuntu, Debian."</p>
+      </div>
+    </div>
+
+    <div class="objection">
+      <div class="objection-q">"This sounds like it could find things we don't want exposed — what happens to those findings?"</div>
+      <div class="objection-a">
+        <p>Findings go only where you tell them to go. The report is a local file — it never gets transmitted to Everforth's servers or anywhere else automatically. In Bedrock or Ollama mode, it doesn't even leave your environment. Our engagement model treats assessment output as client confidential. We don't aggregate findings across clients. If you want to run the assessment and have only your internal team see the output, that's completely your call.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 6 -->
+  <section id="section-6">
+    <h2><span class="section-num">06</span>Closing</h2>
+
+    <h3>What to Leave Behind</h3>
+    <p>Every meeting should end with the client holding three things:</p>
+    <ol>
+      <li><strong>A printed copy of the sample report.</strong> Let them hold it. The physical weight of a 10-page detailed technical report produced in 60 seconds is part of the story.</li>
+      <li><strong>Your business card.</strong> With your direct line, not just your email.</li>
+      <li><strong>A clear next step</strong> — see below.</li>
+    </ol>
+
+    <h3>What to Ask For Next</h3>
+    <p>Do not leave without naming a specific next step.</p>
+
+    <div class="callout gold">
+      <span class="callout-icon">&#9670;</span>
+      <div>
+        <strong>If they're interested but cautious:</strong><br>
+        "Here's what I'd suggest: let us run a real assessment on a single non-production server in your environment. No VMware, no full network scan — just one Linux host. 10 minutes. You see a real report from your real infrastructure. No commitment to anything after that."
+      </div>
+    </div>
+
+    <div class="callout gold">
+      <span class="callout-icon">&#9670;</span>
+      <div>
+        <strong>If they're engaged and the budget conversation went well:</strong><br>
+        "The way we typically move forward is a scoping call with your IT lead — 30 minutes — to identify the right servers and confirm the credentials access. We schedule the assessment, run it, and have the report reviewed with your team within a week. Do you want to set that up before we leave today?"
+      </div>
+    </div>
+
+    <div class="callout gold">
+      <span class="callout-icon">&#9670;</span>
+      <div>
+        <strong>If the CISO or security team lead was in the room and engaged:</strong><br>
+        "If it would be useful, we can put together a 1-page summary of the risk findings from the demo alongside your environment profile — something you could share with your security team as context for the conversation. Would that be helpful?"
+      </div>
+    </div>
+
+    <h3>Things to Never Do</h3>
+    <div class="not-this">Do not promise a specific savings number without running a real assessment. The demo numbers are from a synthetic environment.</div>
+    <div class="not-this">Do not commit to a project timeline or price on the spot. The assessment scopes the work — that's literally its purpose.</div>
+    <div class="not-this">Do not leave without a named next step and a date. "I'll follow up" is not a next step.</div>
+  </section>
+
+  <!-- SECTION 7 -->
+  <section id="section-7">
+    <h2><span class="section-num">07</span>Quick Reference Card</h2>
+
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px">Print this section separately and keep it in your bag.</p>
+
+    <div class="ref-card">
+      <div class="ref-card-title">ScoutAgent 2.0 — Sales Quick Reference | Everforth Infrastructure Practice</div>
+
+      <h4>The One-Line Hook</h4>
+      <div class="script-block" style="font-size:13px;margin:10px 0 20px">
+        "ScoutAgent finds your security gaps and VMware waste in under 10 minutes — and produces a board-ready report your CIO can act on without calling a meeting."
+      </div>
+
+      <h4>The Demo Command</h4>
+      <pre><code>python3 agent.py --demo</code></pre>
+      <p style="font-size:12px;margin-top:8px">Say while it runs: "It's scanning the environment... reading the security configuration... checking VMware... now the AI is writing the report..."</p>
+
+      <h4>Three Things Each Persona Cares About</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>CIO</th><th>CFO</th><th>CISO</th></tr></thead>
+          <tbody>
+            <tr><td>Risk rating + top 3 priorities</td><td>Annual savings number</td><td>Risk register — Critical findings</td></tr>
+            <tr><td>90-day roadmap</td><td>Confidence level</td><td>Finding combinations</td></tr>
+            <tr><td>Effort estimates</td><td>3-year projection</td><td>Remediation windows</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>The Four Objections + One-Line Responses</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Objection</th><th>Your One-Liner</th></tr></thead>
+          <tbody>
+            <tr><td>"Is our data safe?"</td><td>"Three modes: cloud API, your AWS, or fully on-prem. You pick based on your policy."</td></tr>
+            <tr><td>"We already have a scanner"</td><td>"Scanners find CVEs. ScoutAgent produces a board-ready business document in 10 minutes."</td></tr>
+            <tr><td>"What does implementation look like?"</td><td>"Read-only SSH account, 10 minutes, no changes to any system."</td></tr>
+            <tr><td>"Can it run in our environment?"</td><td>"Yes — including air-gapped. We meet your security policy, not the other way around."</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Next Steps — Pick One</h4>
+      <ul>
+        <li><strong>Cautious:</strong> Single server pilot, no commitment</li>
+        <li><strong>Engaged:</strong> 30-min scoping call, assessment within a week</li>
+        <li><strong>Security-focused:</strong> 1-page risk summary for their security team</li>
+      </ul>
+
+      <h4>Leave Behind Checklist</h4>
+      <ul class="checklist">
+        <li>Printed sample report</li>
+        <li>Business card (direct line on it)</li>
+        <li>Named next step with a date</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="doc-footer">
+    Everforth Infrastructure Practice | An Apex Systems Company<br>
+    ScoutAgent 2.0 Sales Playbook | For Internal Use Only — Not for Client Distribution
+  </div>
+
+</main>
+</div>
+
+</body>
+</html>
