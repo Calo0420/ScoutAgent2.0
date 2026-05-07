@@ -964,6 +964,12 @@ function applyLiveResults(data) {
     logEv(`Live data loaded: ${data.client} @ ${data.scanned_at}`, 'ok');
     logEv(`Host: ${m.host || '?'} | OS: ${m.os || '?'} | CIS: ${m.cis_score || '?'}`, 'info');
   }
+
+  // Always show download button as soon as complete scan data is available
+  if (data.status === 'complete' && Object.keys(liveDetails).length > 0) {
+    const dlBtn = document.getElementById('btnDownloadReport');
+    if (dlBtn) dlBtn.style.display = 'block';
+  }
 }
 
 async function pollLatest() {
