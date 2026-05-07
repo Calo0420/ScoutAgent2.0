@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SCOUTER 2.0 — APEX INFRA TEST ENVIRONMENT</title>
+<title>SCOUTER 2.0 — EVERFORTH INFRASTRUCTURE ASSESSMENT</title>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#030a03;--panel:#08120a;--panel2:#0b160c;--border:#152015;
-  --text:#a8bea0;--muted:#3d5040;--accent:#c8a832;--accent2:#e8c840;
-  --crit:#ff2828;--high:#ff7a00;--med:#e8c840;--low:#40c870;
-  --info:#3a9cff;--safe:#30e060;--node-bg:#0d1a0e;
+  --bg:#07090e;--panel:#0e1520;--panel2:#121a26;--border:#2a3d52;
+  --text:#f0f4f8;--muted:#828A91;--accent:#6b8caa;--accent2:#8aaece;
+  --crit:#ff3535;--high:#ff8c1a;--med:#f0d050;--low:#3dd670;
+  --info:#4aacff;--safe:#38e870;--node-bg:#080d14;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100vh;display:flex;flex-direction:column}
@@ -39,12 +39,12 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);overf
 .aname{font-size:11px;flex:1}
 .acov{font-size:9px;color:var(--muted);letter-spacing:1px}
 /* Run button */
-.run-btn{width:100%;background:var(--accent);color:#000;font-weight:700;font-family:'Exo 2',sans-serif;border:none;padding:9px;border-radius:2px;cursor:pointer;font-size:13px;letter-spacing:1px;transition:all .2s}
+.run-btn{width:100%;background:var(--accent);color:#fff;font-weight:700;font-family:'Exo 2',sans-serif;border:none;padding:9px;border-radius:2px;cursor:pointer;font-size:13px;letter-spacing:1px;transition:all .2s}
 .run-btn:hover:not(:disabled){background:var(--accent2);transform:translateY(-1px)}
 .run-btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
 /* Canvas area */
-.canvas-wrap{flex:1;position:relative;background:#020802;overflow:hidden}
-.canvas-wrap::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 24px,rgba(0,255,0,.015) 24px,rgba(0,255,0,.015) 25px),repeating-linear-gradient(90deg,transparent,transparent 24px,rgba(0,255,0,.015) 24px,rgba(0,255,0,.015) 25px);pointer-events:none;z-index:0}
+.canvas-wrap{flex:1;position:relative;background:#060810;overflow:hidden}
+.canvas-wrap::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 24px,rgba(68,84,106,.05) 24px,rgba(68,84,106,.05) 25px),repeating-linear-gradient(90deg,transparent,transparent 24px,rgba(68,84,106,.05) 24px,rgba(68,84,106,.05) 25px);pointer-events:none;z-index:0}
 canvas{display:block;position:relative;z-index:1}
 .hud{position:absolute;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);pointer-events:none;z-index:2}
 /* Bottom bar */
@@ -94,6 +94,45 @@ canvas{display:block;position:relative;z-index:1}
 .score-display{text-align:center;padding:8px}
 .score-num{font-size:36px;font-weight:700;font-family:'Share Tech Mono',monospace;color:var(--accent)}
 .score-lbl{font-size:9px;letter-spacing:2px;color:var(--muted)}
+/* Presenter bar */
+#presenterBar{position:fixed;bottom:120px;left:50%;transform:translateX(-50%);z-index:40;background:rgba(8,13,20,.97);border:1px solid var(--border);border-radius:4px;padding:8px 14px;display:flex;align-items:center;gap:8px;backdrop-filter:blur(10px);box-shadow:0 6px 32px rgba(0,0,0,.5);white-space:nowrap}
+.pbar-label{font-size:9px;letter-spacing:2px;color:var(--muted);font-family:'Share Tech Mono',monospace;margin-right:4px}
+.pbar-sep{width:1px;height:20px;background:var(--border);flex-shrink:0}
+.pbar-btn{padding:5px 11px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:2px;cursor:pointer;font-size:11px;font-family:'Exo 2',sans-serif;letter-spacing:1px;transition:all .2s;white-space:nowrap}
+.pbar-btn:hover{border-color:var(--accent);color:var(--accent)}
+.pbar-btn.pbar-active{border-color:var(--accent);color:var(--accent);background:rgba(107,140,170,.12)}
+.pbar-btn.pbar-run{border-color:var(--safe);color:var(--safe)}
+.pbar-btn.pbar-run:hover{background:rgba(56,232,112,.08)}
+.pbar-btn.pbar-present{border-color:var(--accent2);color:var(--accent2);font-weight:700}
+.pbar-btn.pbar-present:hover{background:rgba(138,174,206,.1)}
+.pbar-btn.pbar-fs{border-color:var(--border);color:var(--muted)}
+/* Demo sequence banner */
+#demoSeqBanner{display:none;position:fixed;top:42px;left:50%;transform:translateX(-50%);z-index:45;background:rgba(8,13,20,.97);border:1px solid var(--accent2);border-radius:4px;padding:8px 16px;align-items:center;gap:14px;font-family:'Share Tech Mono',monospace;font-size:11px;box-shadow:0 4px 24px rgba(0,0,0,.5)}
+#demoSeqBanner.show{display:flex}
+.demo-step-label{color:var(--accent2);letter-spacing:1.5px}
+.demo-next-btn{padding:4px 12px;background:var(--accent2);color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:11px;font-family:'Share Tech Mono',monospace;letter-spacing:1px;transition:all .2s}
+.demo-next-btn:hover{background:var(--accent)}
+.demo-end-btn{padding:4px 12px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:2px;cursor:pointer;font-size:10px;font-family:'Share Tech Mono',monospace;transition:all .2s}
+.demo-end-btn:hover{border-color:var(--crit);color:var(--crit)}
+/* Settings overlay */
+.settings-overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:60;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.settings-modal{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:28px;width:440px;max-height:90vh;overflow-y:auto}
+.settings-title{font-size:10px;letter-spacing:3px;color:var(--accent);font-family:'Share Tech Mono',monospace;margin-bottom:20px}
+.settings-field{margin-bottom:14px}
+.settings-label{font-size:10px;letter-spacing:1.5px;color:var(--muted);margin-bottom:5px;display:block;text-transform:uppercase}
+.settings-input{width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:2px;font-size:13px;font-family:'Exo 2',sans-serif;outline:none;transition:border-color .2s}
+.settings-input:focus{border-color:var(--accent)}
+.settings-select{width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:2px;font-size:13px;font-family:'Exo 2',sans-serif;outline:none;cursor:pointer}
+.settings-toggle-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0}
+.settings-divider{border:none;border-top:1px solid var(--border);margin:18px 0}
+.settings-msg{font-size:11px;margin-top:10px;text-align:center;font-family:'Share Tech Mono',monospace;min-height:16px}
+/* Header icon buttons */
+.hdr-icon{background:transparent;border:1px solid var(--border);color:var(--muted);padding:2px 7px;border-radius:2px;cursor:pointer;font-size:11px;transition:all .2s;font-family:'Share Tech Mono',monospace}
+.hdr-icon:hover{border-color:var(--accent);color:var(--accent)}
+/* Finding items in modal */
+.finding-item{padding:8px 10px;margin-bottom:5px;border-left:3px solid;border-radius:0 2px 2px 0}
+.finding-item-label{font-size:11px;font-family:'Share Tech Mono',monospace;font-weight:700}
+.finding-item-impact{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4}
 </style>
 </head>
 <body>
@@ -102,15 +141,19 @@ canvas{display:block;position:relative;z-index:1}
 <header style="height:36px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0">
   <div style="display:flex;align-items:center;gap:10px">
     <span class="mono" style="color:var(--accent);font-size:11px;letter-spacing:2px">SCOUTER 2.0</span>
-    <span class="mono" style="color:var(--muted);font-size:10px">// APEX INFRA TEST ENVIRONMENT</span>
+    <span class="mono" style="color:var(--muted);font-size:10px">// EVERFORTH INFRASTRUCTURE ASSESSMENT</span>
     <span class="mono" id="liveTag" style="color:var(--muted);font-size:10px;border:1px solid var(--border);padding:1px 6px;border-radius:2px">DEMO</span>
   </div>
-  <div style="display:flex;align-items:center;gap:16px">
+  <div style="display:flex;align-items:center;gap:10px">
     <span class="mono pulse" style="color:var(--safe);font-size:10px">&#9679; STANDBY</span>
     <span class="mono" style="color:var(--muted);font-size:10px" id="clock">00:00:00</span>
-    <span class="mono" style="color:var(--muted);font-size:9px;padding:0 4px">|</span>
+    <span class="mono" style="color:var(--muted);font-size:9px;padding:0 2px">|</span>
     <a href="/manual/client-it" target="_blank" class="mono" style="color:var(--muted);font-size:10px;text-decoration:none;border:1px solid var(--border);padding:1px 6px;border-radius:2px;transition:all .2s" onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">IT MANUAL</a>
     <a href="/manual/sales" target="_blank" class="mono" style="color:var(--muted);font-size:10px;text-decoration:none;border:1px solid var(--border);padding:1px 6px;border-radius:2px;transition:all .2s" onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">SALES PLAYBOOK</a>
+    <span class="mono" style="color:var(--muted);font-size:9px;padding:0 2px">|</span>
+    <button class="hdr-icon" id="btnFullscreen" title="Fullscreen (F)" onclick="toggleFullscreen()">[ ]</button>
+    <button class="hdr-icon" id="btnPresenter" title="Presenter bar (P)" onclick="togglePresenterBar()">&#9654; PRESENT</button>
+    <button class="hdr-icon" title="Settings" onclick="openSettings()">&#9881;</button>
   </div>
 </header>
 
@@ -118,50 +161,50 @@ canvas{display:block;position:relative;z-index:1}
 <main style="flex:1;display:flex;overflow:hidden">
 
   <!-- LEFT: ENVIRONMENT CONFIG -->
-  <aside style="width:200px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;background:var(--panel)">
-    <div class="phead">&#9881; Inject Vulnerabilities</div>
+  <aside style="width:210px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;background:var(--panel)">
+    <div class="phead">&#9881; Scenario Setup</div>
+
+    <div style="padding:4px 8px 8px;border-bottom:1px solid var(--border)">
+      <div style="font-size:10px;color:var(--muted);padding:2px 2px 7px;line-height:1.5">Choose a scenario or toggle individual conditions, then run the scan.</div>
+      <div class="preset-grid" style="padding:0">
+        <button class="preset-btn" data-p="clean">BEST PRACTICE</button>
+        <button class="preset-btn" data-p="moderate">TYPICAL CLIENT</button>
+        <button class="preset-btn active" data-p="harsh">HIGH RISK</button>
+        <button class="preset-btn" data-p="nightmare">WORST CASE</button>
+      </div>
+    </div>
 
     <div style="padding:4px 0 2px">
-      <div class="phead" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px">A1 / A2 — LINUX</div>
-      <div class="cfg-row" id="row-ssh"><span class="cfg-label">Root SSH enabled</span><label class="toggle"><input type="checkbox" id="cfg-ssh"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
-      <div class="cfg-row" id="row-passauth"><span class="cfg-label">Password auth on</span><label class="toggle"><input type="checkbox" id="cfg-passauth"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
-      <div class="cfg-row" id="row-selinux"><span class="cfg-label">SELinux disabled</span><label class="toggle"><input type="checkbox" id="cfg-selinux"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
-      <div class="cfg-row" id="row-auditd"><span class="cfg-label">auditd disabled</span><label class="toggle"><input type="checkbox" id="cfg-auditd"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
-      <div class="cfg-row" id="row-patch"><span class="cfg-label">Unpatched &gt;60 days</span><label class="toggle"><input type="checkbox" id="cfg-patch"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
-      <div class="cfg-row" id="row-disk"><span class="cfg-label">Disk &gt;85% full</span><label class="toggle"><input type="checkbox" id="cfg-disk"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="phead" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px">SERVER SECURITY</div>
+      <div class="cfg-row" id="row-ssh"><span class="cfg-label">Remote admin: Unrestricted</span><label class="toggle"><input type="checkbox" id="cfg-ssh"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-passauth"><span class="cfg-label">Password login: Allowed</span><label class="toggle"><input type="checkbox" id="cfg-passauth"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-selinux"><span class="cfg-label">OS security layer: Off</span><label class="toggle"><input type="checkbox" id="cfg-selinux"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-auditd"><span class="cfg-label">Activity logging: Off</span><label class="toggle"><input type="checkbox" id="cfg-auditd"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-patch"><span class="cfg-label">Security updates: Overdue</span><label class="toggle"><input type="checkbox" id="cfg-patch"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-disk"><span class="cfg-label">Storage: Near capacity</span><label class="toggle"><input type="checkbox" id="cfg-disk"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
     </div>
 
     <div style="padding:4px 0 2px;border-top:1px solid var(--border)">
-      <div class="phead" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px">A3 — NETWORK</div>
-      <div class="cfg-row" id="row-mongo"><span class="cfg-label">MongoDB open (27017)</span><label class="toggle"><input type="checkbox" id="cfg-mongo"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
-      <div class="cfg-row" id="row-redis"><span class="cfg-label">Redis open (6379)</span><label class="toggle"><input type="checkbox" id="cfg-redis"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
-      <div class="cfg-row" id="row-telnet"><span class="cfg-label">Telnet active (23)</span><label class="toggle"><input type="checkbox" id="cfg-telnet"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
-      <div class="cfg-row" id="row-rdp"><span class="cfg-label">RDP exposed (3389)</span><label class="toggle"><input type="checkbox" id="cfg-rdp"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="phead" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px">NETWORK</div>
+      <div class="cfg-row" id="row-mongo"><span class="cfg-label">Database: Publicly exposed</span><label class="toggle"><input type="checkbox" id="cfg-mongo"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-redis"><span class="cfg-label">Cache server: Unprotected</span><label class="toggle"><input type="checkbox" id="cfg-redis"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-telnet"><span class="cfg-label">Insecure protocol: Active</span><label class="toggle"><input type="checkbox" id="cfg-telnet"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-rdp"><span class="cfg-label">Remote desktop: Exposed</span><label class="toggle"><input type="checkbox" id="cfg-rdp"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
     </div>
 
     <div style="padding:4px 0 2px;border-top:1px solid var(--border)">
-      <div class="phead" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px">A5 — VMWARE</div>
-      <div class="cfg-row" id="row-vmsoff"><span class="cfg-label">5 powered-off VMs</span><label class="toggle"><input type="checkbox" id="cfg-vmsoff"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
-      <div class="cfg-row" id="row-oversize"><span class="cfg-label">Oversized VMs (&lt;2% CPU)</span><label class="toggle"><input type="checkbox" id="cfg-oversize"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
-      <div class="cfg-row" id="row-snap"><span class="cfg-label">Old snapshots (PROD)</span><label class="toggle"><input type="checkbox" id="cfg-snap"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="phead" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px">VIRTUALIZATION</div>
+      <div class="cfg-row" id="row-vmsoff"><span class="cfg-label">Unused VMs: Wasting cost</span><label class="toggle"><input type="checkbox" id="cfg-vmsoff"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-oversize"><span class="cfg-label">Oversized VMs: Over-allocated</span><label class="toggle"><input type="checkbox" id="cfg-oversize"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-snap"><span class="cfg-label">Snapshots: Unmanaged risk</span><label class="toggle"><input type="checkbox" id="cfg-snap"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
     </div>
 
     <div style="padding:4px 0 2px;border-top:1px solid var(--border)">
-      <div class="phead" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px">A7 / A8 — AI & AUTO</div>
-      <div class="cfg-row" id="row-nogpu"><span class="cfg-label">No GPU / no CUDA</span><label class="toggle"><input type="checkbox" id="cfg-nogpu"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
-      <div class="cfg-row" id="row-nomodel"><span class="cfg-label">No model serving</span><label class="toggle"><input type="checkbox" id="cfg-nomodel"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
-      <div class="cfg-row" id="row-noansible"><span class="cfg-label">No Ansible / IaC</span><label class="toggle"><input type="checkbox" id="cfg-noansible"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
-      <div class="cfg-row" id="row-nocicd"><span class="cfg-label">No CI/CD pipeline</span><label class="toggle"><input type="checkbox" id="cfg-nocicd"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
-    </div>
-
-    <div style="border-top:1px solid var(--border)">
-      <div class="phead">Scenario Presets</div>
-      <div class="preset-grid">
-        <button class="preset-btn" data-p="clean">CLEAN</button>
-        <button class="preset-btn" data-p="moderate">MODERATE</button>
-        <button class="preset-btn active" data-p="harsh">HARSH</button>
-        <button class="preset-btn" data-p="nightmare">NIGHTMARE</button>
-      </div>
+      <div class="phead" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px">AI & AUTOMATION</div>
+      <div class="cfg-row" id="row-nogpu"><span class="cfg-label">AI hardware: Not available</span><label class="toggle"><input type="checkbox" id="cfg-nogpu"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-nomodel"><span class="cfg-label">AI platform: Not deployed</span><label class="toggle"><input type="checkbox" id="cfg-nomodel"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-noansible"><span class="cfg-label">Automation tools: Missing</span><label class="toggle"><input type="checkbox" id="cfg-noansible"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-nocicd"><span class="cfg-label">Deployment pipeline: Missing</span><label class="toggle"><input type="checkbox" id="cfg-nocicd"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
     </div>
   </aside>
 
@@ -170,8 +213,8 @@ canvas{display:block;position:relative;z-index:1}
     <div class="canvas-wrap" id="canvasWrap">
       <canvas id="topoCanvas"></canvas>
       <div class="hud" style="top:6px;left:8px" id="hudNode">NODE: --</div>
-      <div class="hud" style="top:6px;right:8px" id="hudScan">IDLE</div>
-      <div class="hud" style="bottom:6px;left:8px" id="hudAccel">ACTIVE ACCELERATORS: --</div>
+      <div class="hud" style="top:6px;right:8px" id="hudScan">READY</div>
+      <div class="hud" style="bottom:6px;left:8px" id="hudAccel">MODULES ACTIVE: --</div>
       <div class="hud" style="bottom:6px;right:8px" id="hudTime">T+0.0s</div>
     </div>
 
@@ -186,9 +229,9 @@ canvas{display:block;position:relative;z-index:1}
           <div class="find-box low"><div class="find-val" id="fLow">0</div><div class="find-lbl">LOW</div></div>
         </div>
         <div class="stats-row mono" style="font-size:11px">
-          <div><div style="color:var(--muted);font-size:9px">NODES</div><span id="sNodes">0/0</span></div>
-          <div><div style="color:var(--muted);font-size:9px">MISSED</div><span id="sMissed" style="color:var(--crit)">0</span></div>
-          <div><div style="color:var(--muted);font-size:9px">ELAPSED</div><span id="sTime">0.0s</span></div>
+          <div><div style="color:var(--muted);font-size:9px">SYSTEMS</div><span id="sNodes">0/0</span></div>
+          <div><div style="color:var(--muted);font-size:9px">GAPS</div><span id="sMissed" style="color:var(--crit)">0</span></div>
+          <div><div style="color:var(--muted);font-size:9px">SCAN TIME</div><span id="sTime">0.0s</span></div>
           <div><div style="color:var(--muted);font-size:9px">COVERAGE</div><span id="sCov">--%</span></div>
         </div>
       </div>
@@ -203,12 +246,12 @@ canvas{display:block;position:relative;z-index:1}
   <aside style="width:200px;flex-shrink:0;border-left:1px solid var(--border);overflow-y:auto;background:var(--panel);display:flex;flex-direction:column">
     <div class="phead">&#9654; Accelerators</div>
     <div style="padding:6px 8px;flex:1">
-      <div class="accel on" data-idx="0"><div class="adot"></div><span class="atag">A1</span><div><div class="aname" style="font-size:11px">Linux Fast Track</div><div class="acov">PATCH · INVENTORY</div></div></div>
-      <div class="accel on" data-idx="1"><div class="adot"></div><span class="atag">A2</span><div><div class="aname" style="font-size:11px">Hardening Sprint</div><div class="acov">CIS · SSH · SELINUX</div></div></div>
-      <div class="accel on" data-idx="2"><div class="adot"></div><span class="atag">A3</span><div><div class="aname" style="font-size:11px">Network Health</div><div class="acov">PORTS · EXPOSURE</div></div></div>
-      <div class="accel on" data-idx="3"><div class="adot"></div><span class="atag">A5</span><div><div class="aname" style="font-size:11px">VMware Optimizer</div><div class="acov">COST · VMs · SNAP</div></div></div>
-      <div class="accel on" data-idx="4"><div class="adot"></div><span class="atag">A7</span><div><div class="aname" style="font-size:11px">AI Stack Assess</div><div class="acov">GPU · ML · SERVING</div></div></div>
-      <div class="accel on" data-idx="5"><div class="adot"></div><span class="atag">A8</span><div><div class="aname" style="font-size:11px">Automation &amp; IaC</div><div class="acov">ANSIBLE · CI/CD</div></div></div>
+      <div class="accel on" data-idx="0"><div class="adot"></div><span class="atag">A1</span><div><div class="aname" style="font-size:11px">Linux Fast Track</div><div class="acov">OS Health · Patches</div></div></div>
+      <div class="accel on" data-idx="1"><div class="adot"></div><span class="atag">A2</span><div><div class="aname" style="font-size:11px">Hardening Sprint</div><div class="acov">Security Baseline</div></div></div>
+      <div class="accel on" data-idx="2"><div class="adot"></div><span class="atag">A3</span><div><div class="aname" style="font-size:11px">Network Health</div><div class="acov">Open Ports · Exposure</div></div></div>
+      <div class="accel on" data-idx="3"><div class="adot"></div><span class="atag">A5</span><div><div class="aname" style="font-size:11px">VMware Optimizer</div><div class="acov">VM Cost · Snapshots</div></div></div>
+      <div class="accel on" data-idx="4"><div class="adot"></div><span class="atag">A7</span><div><div class="aname" style="font-size:11px">AI Stack Assess</div><div class="acov">GPU · AI Readiness</div></div></div>
+      <div class="accel on" data-idx="5"><div class="adot"></div><span class="atag">A8</span><div><div class="aname" style="font-size:11px">Automation &amp; IaC</div><div class="acov">Automation · CI/CD</div></div></div>
     </div>
 
     <div style="border-top:1px solid var(--border)">
@@ -216,7 +259,7 @@ canvas{display:block;position:relative;z-index:1}
       <div style="padding:8px">
         <button class="run-btn" id="runBtn">&#9654; RUN SCAN</button>
         <div style="margin-top:8px;text-align:center">
-          <div class="score-lbl">DETECTION SCORE</div>
+          <div class="score-lbl">SECURITY SCORE</div>
           <div class="score-num" id="scoreNum">--</div>
         </div>
       </div>
@@ -226,9 +269,12 @@ canvas{display:block;position:relative;z-index:1}
       <div class="phead">Shortcuts</div>
       <div class="mono" style="padding:6px 10px;font-size:10px;color:var(--muted);display:flex;flex-direction:column;gap:2px">
         <div><span style="color:var(--text)">SPACE</span> Run / Reset</div>
-        <div><span style="color:var(--text)">1-6</span> Toggle accel</div>
-        <div><span style="color:var(--text)">N</span> Nightmare mode</div>
-        <div><span style="color:var(--text)">C</span> Clean mode</div>
+        <div><span style="color:var(--text)">1-6</span> Toggle module</div>
+        <div><span style="color:var(--text)">P</span> Presenter bar</div>
+        <div><span style="color:var(--text)">F</span> Fullscreen</div>
+        <div><span style="color:var(--text)">N</span> Worst Case</div>
+        <div><span style="color:var(--text)">C</span> Best Practice</div>
+        <div><span style="color:var(--text)">ESC</span> Close / End demo</div>
       </div>
     </div>
   </aside>
@@ -238,39 +284,41 @@ canvas{display:block;position:relative;z-index:1}
 <div class="overlay" id="modal" style="display:none">
   <div class="modal">
     <div style="text-align:center;margin-bottom:16px">
-      <div class="mono" style="font-size:10px;letter-spacing:3px;color:var(--accent)">SCAN DEBRIEF</div>
+      <div class="mono" style="font-size:10px;letter-spacing:3px;color:var(--accent)">ASSESSMENT RESULTS</div>
       <div class="modal-score" id="mScore" style="color:var(--accent)">--</div>
       <div class="modal-grade" id="mGrade" style="color:var(--muted)">--</div>
+      <div id="mVerdict" style="margin-top:10px;font-size:12px;color:var(--text);line-height:1.5;padding:8px 12px;background:rgba(255,255,255,.04);border-radius:3px;border:1px solid var(--border)"></div>
     </div>
+    <div id="mFindings" style="margin:4px 0 12px"></div>
     <div class="modal-grid" id="mGrid"></div>
     <div id="mMisses" style="display:none">
-      <div style="font-size:10px;letter-spacing:1px;color:var(--crit);margin-bottom:4px">&#9888; MISSED FINDINGS (ACCELERATOR DISABLED)</div>
+      <div style="font-size:10px;letter-spacing:1px;color:var(--crit);margin-bottom:4px">&#9888; NOT COVERED — MODULE DISABLED</div>
       <div class="miss-list" id="mMissList"></div>
     </div>
-    <button class="run-btn" style="margin-top:16px" onclick="document.getElementById('modal').style.display='none'">ACKNOWLEDGED</button>
+    <button class="run-btn" style="margin-top:16px" onclick="document.getElementById('modal').style.display='none'">CLOSE REPORT</button>
   </div>
 </div>
 
 <script>
 // ========== CONFIG DEFINITIONS ==========
 const CONFIGS = {
-  ssh:       {id:'cfg-ssh',     accel:1, sev:'crit', label:'Root SSH enabled on 10.0.0.10',           detail:'PermitRootLogin yes — direct root brute-force vector'},
-  passauth:  {id:'cfg-passauth',accel:1, sev:'crit', label:'SSH password auth enabled',               detail:'Key-based auth not enforced — 143 failed login attempts logged'},
-  selinux:   {id:'cfg-selinux', accel:1, sev:'high', label:'SELinux in permissive mode',              detail:'Kernel enforcement disabled — exploit containment ineffective'},
-  auditd:    {id:'cfg-auditd',  accel:1, sev:'high', label:'auditd service disabled',                 detail:'No audit trail — UNKNOWN login Apr 22 03:17 undetected'},
-  patch:     {id:'cfg-patch',   accel:0, sev:'high', label:'74 days since last patch',                detail:'kernel 4.18.0-372.9.1 — known CVEs unpatched'},
-  disk:      {id:'cfg-disk',    accel:0, sev:'med',  label:'Disk at 85% utilization',                 detail:'390 GB / 500 GB — critical threshold in ~30 days'},
-  mongo:     {id:'cfg-mongo',   accel:2, sev:'crit', label:'MongoDB 27017 open — no auth',            detail:'10.10.0.18 — entire DB readable/writable from subnet'},
-  redis:     {id:'cfg-redis',   accel:2, sev:'crit', label:'Redis 6379 open — no auth',               detail:'10.10.0.31 — RCE via module loading possible'},
-  telnet:    {id:'cfg-telnet',  accel:2, sev:'crit', label:'Telnet active on 10.10.0.5:23',           detail:'Credentials transmitted in plaintext — trivially sniffable'},
-  rdp:       {id:'cfg-rdp',     accel:2, sev:'high', label:'RDP 3389 exposed to subnet',              detail:'10.10.0.22 — brute-force + BlueKeep-class exploit target'},
-  vmsoff:    {id:'cfg-vmsoff',  accel:3, sev:'med',  label:'5 powered-off VMs consuming licenses',   detail:'OLD-WEB-01, TEST-DB-03, DECOM-APP-07 — $1,600/yr waste'},
-  oversize:  {id:'cfg-oversize',accel:3, sev:'med',  label:'3 VMs oversized (<2% CPU utilization)',   detail:'PROD-APP-02 (16→8 vCPU), PROD-APP-04, DEV-BUILD-01'},
-  snap:      {id:'cfg-snap',    accel:3, sev:'high', label:'Active snapshot on PROD-DB-01',           detail:'Unbounded growth — storage exhaustion + performance risk'},
-  nogpu:     {id:'cfg-nogpu',   accel:4, sev:'low',  label:'No GPU detected — CUDA unavailable',     detail:'AI/ML workloads constrained to CPU — not production-ready'},
-  nomodel:   {id:'cfg-nomodel', accel:4, sev:'low',  label:'No model serving platform found',        detail:'Only scikit-learn — no inference stack, no vector DB'},
-  noansible: {id:'cfg-noansible',accel:5,sev:'med',  label:'No Ansible / Terraform detected',        detail:'Configuration drift inevitable across 47 VMs — manual only'},
-  nocicd:    {id:'cfg-nocicd',  accel:5, sev:'med',  label:'No CI/CD pipeline configured',           detail:'Only git + Docker — no automated testing or deployment'},
+  ssh:       {id:'cfg-ssh',     accel:1, sev:'crit', label:'Root SSH enabled on 10.0.0.10',           detail:'PermitRootLogin yes — direct root brute-force vector',          business:'Unrestricted remote admin access is the #1 ransomware entry point. One leaked credential = full server compromise.'},
+  passauth:  {id:'cfg-passauth',accel:1, sev:'crit', label:'SSH password auth enabled',               detail:'Key-based auth not enforced — 143 failed login attempts logged',  business:'143 failed login attempts logged in 30 days. Attackers are actively probing this server right now.'},
+  selinux:   {id:'cfg-selinux', accel:1, sev:'high', label:'SELinux in permissive mode',              detail:'Kernel enforcement disabled — exploit containment ineffective',    business:'OS security layer is off. Any successful exploit runs with full system privileges — no containment.'},
+  auditd:    {id:'cfg-auditd',  accel:1, sev:'high', label:'auditd service disabled',                 detail:'No audit trail — UNKNOWN login Apr 22 03:17 undetected',          business:'An unauthorized login on Apr 22 at 03:17 went completely undetected. No logs, no alert, no trail.'},
+  patch:     {id:'cfg-patch',   accel:0, sev:'high', label:'74 days since last patch',                detail:'kernel 4.18.0-372.9.1 — known CVEs unpatched',                   business:'74 days without security updates. This kernel version has 3 publicly known exploits available online.'},
+  disk:      {id:'cfg-disk',    accel:0, sev:'med',  label:'Disk at 85% utilization',                 detail:'390 GB / 500 GB — critical threshold in ~30 days',               business:'At current growth rate, this server runs out of disk space in approximately 30 days — causing a full outage.'},
+  mongo:     {id:'cfg-mongo',   accel:2, sev:'crit', label:'MongoDB 27017 open — no auth',            detail:'10.10.0.18 — entire DB readable/writable from subnet',            business:'The entire database is readable and writable by anyone on the network. No password required.'},
+  redis:     {id:'cfg-redis',   accel:2, sev:'crit', label:'Redis 6379 open — no auth',               detail:'10.10.0.31 — RCE via module loading possible',                   business:'This misconfiguration allows complete remote takeover of the server — no exploit kit needed, just a network connection.'},
+  telnet:    {id:'cfg-telnet',  accel:2, sev:'crit', label:'Telnet active on 10.10.0.5:23',           detail:'Credentials transmitted in plaintext — trivially sniffable',     business:'Every username and password sent over Telnet is visible in plaintext to anyone on the same network. A 1980s protocol still running in 2025.'},
+  rdp:       {id:'cfg-rdp',     accel:2, sev:'high', label:'RDP 3389 exposed to subnet',              detail:'10.10.0.22 — brute-force + BlueKeep-class exploit target',        business:'Remote desktop exposed to the network — the most common delivery method for ransomware attacks in 2024.'},
+  vmsoff:    {id:'cfg-vmsoff',  accel:3, sev:'med',  label:'5 powered-off VMs consuming licenses',   detail:'OLD-WEB-01, TEST-DB-03, DECOM-APP-07 — $1,600/yr waste',          business:'5 VMs sitting powered off, consuming active licenses and doing nothing. $1,600/year in direct recoverable cost.'},
+  oversize:  {id:'cfg-oversize',accel:3, sev:'med',  label:'3 VMs oversized (<2% CPU utilization)',   detail:'PROD-APP-02 (16→8 vCPU), PROD-APP-04, DEV-BUILD-01',             business:'3 virtual machines running at less than 2% CPU usage. You\'re paying for 16 cores and using less than 1.'},
+  snap:      {id:'cfg-snap',    accel:3, sev:'high', label:'Active snapshot on PROD-DB-01',           detail:'Unbounded growth — storage exhaustion + performance risk',         business:'An unmanaged snapshot on the production database is growing without limit. Storage exhaustion causes immediate downtime.'},
+  nogpu:     {id:'cfg-nogpu',   accel:4, sev:'low',  label:'No GPU detected — CUDA unavailable',     detail:'AI/ML workloads constrained to CPU — not production-ready',       business:'Without a GPU, AI workloads run 10–50x slower. The infrastructure can\'t support production AI deployment.'},
+  nomodel:   {id:'cfg-nomodel', accel:4, sev:'low',  label:'No model serving platform found',        detail:'Only scikit-learn — no inference stack, no vector DB',            business:'No platform to deploy AI models to end users. AI development cannot move from experimentation to production.'},
+  noansible: {id:'cfg-noansible',accel:5,sev:'med',  label:'No Ansible / Terraform detected',        detail:'Configuration drift inevitable across 47 VMs — manual only',      business:'47 servers managed manually. Every change is a potential human error and a configuration drift waiting to cause an incident.'},
+  nocicd:    {id:'cfg-nocicd',  accel:5, sev:'med',  label:'No CI/CD pipeline configured',           detail:'Only git + Docker — no automated testing or deployment',          business:'Every software release is manual. Slower delivery, higher error rate, and no safety net if something goes wrong.'},
 };
 
 const ACCEL_MAP = [0,1,2,3,4,5];
@@ -327,11 +375,11 @@ const SCOLORS={crit:'#ff2828',high:'#ff7a00',med:'#e8c840',low:'#40c870'};
 
 function render(){
   const W=canvas.width,H=canvas.height;
-  ctx.fillStyle='#020802';
+  ctx.fillStyle='#060810';
   ctx.fillRect(0,0,W,H);
 
   ctx.setLineDash([4,4]);
-  ctx.strokeStyle='rgba(21,32,21,.8)';
+  ctx.strokeStyle='rgba(26,45,64,.8)';
   ctx.lineWidth=1;
   for(let i=0;i<NODES.length;i++){
     for(let j=i+1;j<NODES.length;j++){
@@ -345,7 +393,7 @@ function render(){
   ctx.setLineDash([]);
 
   if(phase==='moving'){
-    ctx.strokeStyle='rgba(200,168,50,.2)';
+    ctx.strokeStyle='rgba(107,140,170,.3)';
     ctx.lineWidth=1.5;
     ctx.beginPath();
     ctx.moveTo(agentX,agentY);
@@ -357,19 +405,19 @@ function render(){
     const cx=node.x+node.w/2, cy=node.y+node.h/2;
     const state=nodeStates[node.id]||'idle';
 
-    let borderColor='#152015';
-    let bgColor='rgba(13,26,14,.9)';
+    let borderColor='#1a2d40';
+    let bgColor='rgba(8,13,20,.9)';
     let glowColor=null;
 
-    if(state==='scanning'){borderColor='#c8a832';glowColor='rgba(200,168,50,.25)'}
+    if(state==='scanning'){borderColor='#6b8caa';glowColor='rgba(107,140,170,.2)'}
     else if(state==='risk'){borderColor=SCOLORS[highestSev(node)];glowColor=`rgba(${hexToRgb(SCOLORS[highestSev(node)])}, .15)`}
     else if(state==='clean'){borderColor='#40c870';glowColor='rgba(64,200,112,.1)'}
-    else if(state==='skipped'){borderColor='#3d5040';glowColor=null}
+    else if(state==='skipped'){borderColor='#2a3d52';glowColor=null}
 
     if(glowColor){
       const g=ctx.createRadialGradient(cx,cy,0,cx,cy,node.w*0.8);
       g.addColorStop(0,glowColor);
-      g.addColorStop(1,'transparent');
+      g.addColorStop(1,'transparent'); 
       ctx.fillStyle=g;
       ctx.fillRect(node.x-20,node.y-20,node.w+40,node.h+40);
     }
@@ -383,18 +431,18 @@ function render(){
 
     if(state==='scanning'&&checkIdx>0&&currentChecks.length>0){
       const prog=checkIdx/currentChecks.length;
-      ctx.fillStyle='rgba(200,168,50,.3)';
+      ctx.fillStyle='rgba(107,140,170,.4)';
       roundRect(ctx,node.x,node.y+node.h-4,node.w*prog,4,0);
       ctx.fill();
     }
 
     ctx.font='bold 11px Exo 2';
-    ctx.fillStyle=state==='idle'?'#3d5040':state==='scanning'?'#c8a832':state==='risk'?SCOLORS[highestSev(node)]:state==='clean'?'#40c870':'#2a3a2a';
+    ctx.fillStyle=state==='idle'?'#4a6280':state==='scanning'?'#6b8caa':state==='risk'?SCOLORS[highestSev(node)]:state==='clean'?'#40c870':'#2a3d52';
     ctx.textAlign='center';
     ctx.fillText(node.label,cx,node.y+22);
 
     ctx.font='9px Share Tech Mono';
-    ctx.fillStyle='#3d5040';
+    ctx.fillStyle='#828A91';
     ctx.fillText(node.sub,cx,node.y+35);
 
     if(state==='risk'){
@@ -418,7 +466,7 @@ function render(){
 
     if(state==='scanning'){
       const prog=(Math.sin(animT*4)+1)/2;
-      ctx.strokeStyle=`rgba(200,168,50,${0.3*prog})`;
+      ctx.strokeStyle=`rgba(107,140,170,${0.35*prog})`;
       ctx.lineWidth=1;
       ctx.beginPath();
       ctx.arc(cx,cy,node.w*0.6+prog*10,0,Math.PI*2);
@@ -432,7 +480,7 @@ function render(){
     if(age>1.2){pings.splice(i,1);continue}
     const alpha=(1-age/1.2)*0.6;
     const radius=age*40;
-    ctx.strokeStyle=`rgba(${hexToRgb(SCOLORS[p.sev]||'#c8a832')},${alpha})`;
+    ctx.strokeStyle=`rgba(${hexToRgb(SCOLORS[p.sev]||'#6b8caa')},${alpha})`;
     ctx.lineWidth=1;
     ctx.beginPath();
     ctx.arc(p.x,p.y,radius,0,Math.PI*2);
@@ -441,16 +489,16 @@ function render(){
 
   if(phase!=='idle'){
     const g=ctx.createRadialGradient(agentX,agentY,0,agentX,agentY,16);
-    g.addColorStop(0,'rgba(200,168,50,.5)');
+    g.addColorStop(0,'rgba(107,140,170,.5)');
     g.addColorStop(1,'transparent');
     ctx.fillStyle=g;
     ctx.fillRect(agentX-16,agentY-16,32,32);
-    ctx.fillStyle='#f0c840';
+    ctx.fillStyle='#8aaece';
     ctx.beginPath();
     ctx.arc(agentX,agentY,4,0,Math.PI*2);
     ctx.fill();
     const pp=(Math.sin(animT*6)+1)/2;
-    ctx.strokeStyle=`rgba(240,200,64,${0.4*pp})`;
+    ctx.strokeStyle=`rgba(138,174,206,${0.4*pp})`;
     ctx.lineWidth=1;
     ctx.beginPath();
     ctx.arc(agentX,agentY,8+pp*4,0,Math.PI*2);
@@ -468,14 +516,14 @@ function highestSev(node){
 }
 
 function drawRadar(cx,cy,r){
-  ctx.strokeStyle='rgba(200,168,50,.12)';
+  ctx.strokeStyle='rgba(107,140,170,.15)';
   ctx.lineWidth=0.5;
   ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
   ctx.beginPath();ctx.arc(cx,cy,r*0.5,0,Math.PI*2);ctx.stroke();
   ctx.beginPath();ctx.moveTo(cx-r,cy);ctx.lineTo(cx+r,cy);ctx.stroke();
   ctx.beginPath();ctx.moveTo(cx,cy-r);ctx.lineTo(cx,cy+r);ctx.stroke();
   const sw=animT*2;
-  ctx.strokeStyle='rgba(48,224,96,.5)';
+  ctx.strokeStyle='rgba(107,140,170,.6)';
   ctx.lineWidth=1;
   ctx.beginPath();ctx.moveTo(cx,cy);
   ctx.lineTo(cx+Math.cos(sw)*r,cy+Math.sin(sw)*r);ctx.stroke();
@@ -483,10 +531,10 @@ function drawRadar(cx,cy,r){
     const bx=cx+(n.x+n.w/2-canvas.width/2)/canvas.width*r*2;
     const by=cy+(n.y+n.h/2-canvas.height/2)/canvas.height*r*2;
     const st=nodeStates[n.id]||'idle';
-    ctx.fillStyle=st==='risk'?'#ff2828':st==='clean'?'#40c870':st==='scanning'?'#c8a832':'#3d5040';
+    ctx.fillStyle=st==='risk'?'#ff2828':st==='clean'?'#40c870':st==='scanning'?'#6b8caa':'#2a3d52';
     ctx.fillRect(bx-1.5,by-1.5,3,3);
   }
-  ctx.fillStyle='#f0c840';
+  ctx.fillStyle='#8aaece';
   const ax=cx+(agentX-canvas.width/2)/canvas.width*r*2;
   const ay=cy+(agentY-canvas.height/2)/canvas.height*r*2;
   ctx.fillRect(ax-2,ay-2,4,4);
@@ -537,16 +585,16 @@ function startScan(){
   pings=[];
 
   if(nodeQueue.length>0) moveToNode(nodeQueue[0]);
-  logEv(`Scan initiated — ${nodeQueue.length} nodes queued`,'info');
+  logEv(`Assessment started — ${nodeQueue.length} systems queued`,'info');
   const acOn=accels.filter(Boolean).length;
-  logEv(`Active accelerators: ${acOn}/6`,'info');
+  logEv(`Assessment modules active: ${acOn}/6`,'info');
 }
 
 function resetScan(){
   running=false; phase='idle'; scanIdx=0; nodeStates={};
   findings=[]; misses=[];
   document.getElementById('runBtn').textContent='&#9654; RUN SCAN';
-  document.getElementById('hudScan').textContent='IDLE';
+  document.getElementById('hudScan').textContent='READY';
   agentX=NODES[0].x+NODES[0].w/2;
   agentY=NODES[0].y+NODES[0].h/2;
 }
@@ -621,19 +669,29 @@ function update(dt){
 function processCheck(node,check){
   const {key,cfg,type}=check;
   const ncx=node.x+node.w/2, ncy=node.y+node.h/2;
+  const isLive=Object.keys(liveDetails).length>0;
+  const host=configuredHost||'live host';
+  // In live mode replace demo IPs in labels with the real target host
+  const liveLabel=isLive&&configuredHost
+    ?cfg.label.replace(/10\.\d+\.\d+\.\d+/g,host)
+    :cfg.label;
+  // Use remediation detail from scan when available and meaningful
+  const liveDetail=(isLive&&liveDetails[key]&&liveDetails[key]!=='OK'&&liveDetails[key]!=='Unknown')
+    ?liveDetails[key]
+    :cfg.detail;
   if(type==='finding'){
-    findings.push({key,sev:cfg.sev,label:cfg.label,detail:cfg.detail,node:node.id});
+    findings.push({key,sev:cfg.sev,label:liveLabel,detail:liveDetail,node:node.id});
     totalFindings++;
     updateFindCounts();
     pings.push({x:ncx,y:ncy,t:animT,sev:cfg.sev});
-    logEv(`[${cfg.sev.toUpperCase()}] ${cfg.label}`,cfg.sev);
+    logEv(`[${cfg.sev.toUpperCase()}] ${liveLabel}`,cfg.sev);
   }else if(type==='miss'){
     misses.push({key,cfg});
     totalMissed++;
     document.getElementById('sMissed').textContent=totalMissed;
-    logEv(`[MISS] ${cfg.label} — accel disabled`,'med');
+    logEv(`[SKIP] ${liveLabel} — module disabled`,'med');
   }else if(type==='clean'){
-    if(Math.random()<0.4) logEv(`[OK] ${cfg.label.split(' ')[0]} check passed`,'ok');
+    if(Math.random()<0.4) logEv(`[OK] ${liveLabel.split(' ')[0]} check passed`,'ok');
   }
 }
 
@@ -653,35 +711,66 @@ function finalizeScan(){
 
   const allVulns=getActiveConfigs();
   const catchable=allVulns.filter(([k,v])=>accels[v.accel]);
-  const caught=findings.length;
   const total=allVulns.length;
-  const score=total===0?100:Math.round((caught/total)*100);
   const coverage=total===0?100:Math.round((catchable.length/Math.max(1,total))*100);
 
+  // Security health score — severity-weighted, 100=clean, 0=critical
+  const SEV_PENALTY={crit:20,high:12,med:5,low:2};
+  const MAX_PENALTY=Object.values(CONFIGS).reduce((s,c)=>s+(SEV_PENALTY[c.sev]||0),0);
+  const penalty=findings.reduce((s,f)=>s+(SEV_PENALTY[f.sev]||0),0);
+  const score=findings.length===0?100:Math.max(0,Math.round(100-(penalty/MAX_PENALTY)*95));
+
   document.getElementById('scoreNum').textContent=score;
-  document.getElementById('scoreNum').style.color=score>=80?'var(--safe)':score>=50?'var(--med)':'var(--crit)';
+  document.getElementById('scoreNum').style.color=score>=75?'var(--safe)':score>=45?'var(--med)':'var(--crit)';
   document.getElementById('sCov').textContent=`${coverage}%`;
 
-  logEv(`Scan complete — ${findings.length} findings, ${misses.length} missed`,'info');
+  logEv(`Assessment complete — ${findings.length} issues found, ${misses.length} skipped`,'info');
 
-  const grade=score>=95?'S — EXCEPTIONAL':score>=80?'A — EFFECTIVE':score>=65?'B — ADEQUATE':score>=45?'C — MARGINAL':'F — CRITICAL GAPS';
+  const grade=score>=90?'A — SECURE':score>=75?'B — LOW RISK':score>=50?'C — AT RISK':score>=25?'D — HIGH RISK':'F — CRITICAL';
   document.getElementById('mScore').textContent=score;
-  document.getElementById('mScore').style.color=score>=80?'var(--safe)':score>=50?'var(--med)':'var(--crit)';
+  document.getElementById('mScore').style.color=score>=75?'var(--safe)':score>=45?'var(--med)':'var(--crit)';
   document.getElementById('mGrade').textContent=grade;
-  document.getElementById('mGrade').style.color=score>=80?'var(--safe)':score>=50?'var(--med)':'var(--crit)';
+  document.getElementById('mGrade').style.color=score>=75?'var(--safe)':score>=45?'var(--med)':'var(--crit)';
 
   const crit=findings.filter(f=>f.sev==='crit').length;
   const high=findings.filter(f=>f.sev==='high').length;
   document.getElementById('mGrid').innerHTML=`
-    <div class="mk">Total vulnerabilities</div><div class="mv">${total}</div>
-    <div class="mk">Findings detected</div><div class="mv" style="color:var(--safe)">${caught}</div>
-    <div class="mk">Missed (accel off)</div><div class="mv" style="color:var(--crit)">${misses.length}</div>
-    <div class="mk">Critical findings</div><div class="mv" style="color:var(--crit)">${crit}</div>
-    <div class="mk">High findings</div><div class="mv" style="color:var(--high)">${high}</div>
-    <div class="mk">Nodes scanned</div><div class="mv">${nodesScanned}/${nodeQueue.length}</div>
-    <div class="mk">Detection rate</div><div class="mv">${score}%</div>
-    <div class="mk">Scan time</div><div class="mv">${scanTime.toFixed(1)}s</div>
+    <div class="mk">Issues detected</div><div class="mv" style="color:${findings.length>0?'var(--crit)':'var(--safe)'}\">${findings.length}</div>
+    <div class="mk">Not covered (module off)</div><div class="mv" style="color:${misses.length>0?'var(--high)':'var(--muted)'}\">${misses.length}</div>
+    <div class="mk">Critical issues</div><div class="mv" style="color:var(--crit)">${crit}</div>
+    <div class="mk">High-risk issues</div><div class="mv" style="color:var(--high)">${high}</div>
+    <div class="mk">Systems assessed</div><div class="mv">${nodesScanned}/${nodeQueue.length}</div>
+    <div class="mk">Module coverage</div><div class="mv">${coverage}%</div>
+    <div class="mk">Security score</div><div class="mv" style="color:${score>=75?'var(--safe)':score>=45?'var(--med)':'var(--crit)'}\">${score}/100</div>
+    <div class="mk">Assessment time</div><div class="mv">${scanTime.toFixed(1)}s</div>
   `;
+
+  const verdict=score===100
+    ?'No issues were detected. Your infrastructure meets security best practices across all assessed areas.'
+    :score>=75
+    ?'Your infrastructure is in good shape. A few areas for improvement were identified that should be addressed in the next maintenance cycle.'
+    :score>=45
+    ?'Your infrastructure has significant vulnerabilities. Remediation is recommended before the next quarter to reduce exposure.'
+    :'Your infrastructure is at critical risk. Immediate action is required to prevent a security incident.';
+  document.getElementById('mVerdict').textContent=verdict;
+
+  const topFindings=findings.filter(f=>f.sev==='crit'||f.sev==='high').slice(0,4);
+  const mf=document.getElementById('mFindings');
+  if(topFindings.length>0){
+    mf.innerHTML=`<div style="font-size:9px;letter-spacing:2px;color:var(--muted);margin-bottom:7px;font-family:'Share Tech Mono',monospace">KEY FINDINGS</div>`+
+      topFindings.map(f=>{
+        const impact=CONFIGS[f.key]?.business||f.detail;
+        return `<div class="finding-item" style="border-color:${SCOLORS[f.sev]};background:rgba(${hexToRgb(SCOLORS[f.sev])},.04)">
+          <div class="finding-item-label" style="color:${SCOLORS[f.sev]}">[${f.sev.toUpperCase()}] ${f.label}</div>
+          <div class="finding-item-impact">${impact}</div>
+        </div>`;
+      }).join('');
+  }else{
+    mf.innerHTML='';
+  }
+
+  // Notify demo sequence that scan is done
+  if(typeof demoScanDone==='function') demoScanDone();
 
   if(misses.length>0){
     document.getElementById('mMisses').style.display='block';
@@ -714,6 +803,7 @@ function loop(t){
 
 // ========== PRESET LOGIC ==========
 function applyPreset(name){
+  userControlled = true;
   const allKeys=Object.keys(CONFIGS);
   allKeys.forEach(k=>{
     document.getElementById(CONFIGS[k].id).checked=false;
@@ -737,7 +827,7 @@ document.querySelectorAll('.accel').forEach(btn=>{
     const idx=+btn.dataset.idx;
     accels[idx]=!accels[idx];
     btn.classList.toggle('on',accels[idx]);
-    logEv(`Accelerator ${['A1','A2','A3','A5','A7','A8'][idx]} ${accels[idx]?'enabled':'disabled'}`,accels[idx]?'ok':'med');
+    logEv(`Module ${['A1','A2','A3','A5','A7','A8'][idx]} ${accels[idx]?'enabled':'disabled'}`,accels[idx]?'ok':'med');
     updateAccelHud();
   });
 });
@@ -745,12 +835,13 @@ document.querySelectorAll('.accel').forEach(btn=>{
 function updateAccelHud(){
   const names=['A1','A2','A3','A5','A7','A8'];
   const on=names.filter((_,i)=>accels[i]);
-  document.getElementById('hudAccel').textContent=`ACTIVE: ${on.join(' · ')||'NONE'}`;
+  document.getElementById('hudAccel').textContent=`MODULES ACTIVE: ${on.join(' · ')||'NONE'}`;
 }
 
 // ========== TOGGLE SYNC ==========
 Object.entries(CONFIGS).forEach(([key,cfg])=>{
   document.getElementById(cfg.id).addEventListener('change',e=>{
+    userControlled = true;
     const row=document.getElementById(`row-${key}`);
     if(row) row.classList.toggle('enabled',e.target.checked);
     document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
@@ -768,6 +859,9 @@ document.addEventListener('keydown',e=>{
   if(e.key>='1'&&e.key<='6'){const i=+e.key-1;accels[i]=!accels[i];document.querySelectorAll('.accel')[i].classList.toggle('on',accels[i]);updateAccelHud()}
   if(e.key==='n'||e.key==='N') applyPreset('nightmare');
   if(e.key==='c'||e.key==='C') applyPreset('clean');
+  if(e.key==='f'||e.key==='F') toggleFullscreen();
+  if(e.key==='p'||e.key==='P') togglePresenterBar();
+  if(e.key==='Escape'){document.getElementById('settingsOverlay').style.display='none';endDemo();}
 });
 
 // ========== CLOCK ==========
@@ -782,18 +876,36 @@ window.addEventListener('resize',()=>{layoutNodes();if(!running){agentX=NODES[0]
 // ========== LIVE API POLLING ==========
 let liveMode = false;
 let lastScanId = null;
+let userControlled = false; // set true once user manually picks a preset or toggle
+let liveDetails = {};
+let liveMeta = {};
+let configuredHost = '';
 
 function applyLiveResults(data) {
   if (!data || !data.findings) return;
 
-  // Lock toggles to real findings
-  const allKeys = Object.keys(CONFIGS);
-  allKeys.forEach(k => {
-    const val = data.findings[k] === true;
-    document.getElementById(CONFIGS[k].id).checked = val;
-    const row = document.getElementById(`row-${k}`);
-    if (row) row.classList.toggle('enabled', val);
-  });
+  // Store real scan details for use during animation
+  liveDetails = data.details || {};
+  liveMeta    = data.meta    || {};
+
+  // Only override toggles if the user hasn't manually changed anything
+  if (!userControlled) {
+    const allKeys = Object.keys(CONFIGS);
+    allKeys.forEach(k => {
+      const val = data.findings[k] === true;
+      document.getElementById(CONFIGS[k].id).checked = val;
+      const row = document.getElementById(`row-${k}`);
+      if (row) row.classList.toggle('enabled', val);
+    });
+  }
+
+  // Update node subtitles with real host/OS info
+  if (liveMeta.host || liveMeta.os) {
+    const linuxNode = NODES.find(n => n.id === 'linux');
+    if (linuxNode) linuxNode.sub = `${configuredHost || liveMeta.host || 'live host'}  ${liveMeta.os || ''}`.trim();
+  }
+  // Update configured host if meta provides a non-tunnel hostname
+  if (liveMeta.host && liveMeta.host !== 'localhost') configuredHost = liveMeta.host;
 
   // Update header status badge
   const badge = document.querySelector('.pulse');
@@ -818,13 +930,11 @@ function applyLiveResults(data) {
   const tag = document.getElementById('liveTag');
   if (tag) { tag.textContent = 'LIVE'; tag.style.color = 'var(--safe)'; tag.style.borderColor = 'var(--safe)'; }
 
-  // Auto-run scan if new completed result arrived
-  if (data.status === 'complete' && data.scan_id !== lastScanId && !running) {
+  // Log live data arrival but never auto-run — presenter controls the scan
+  if (data.status === 'complete' && data.scan_id !== lastScanId) {
     lastScanId = data.scan_id;
     logEv(`Live data loaded: ${data.client} @ ${data.scanned_at}`, 'ok');
     logEv(`Host: ${m.host || '?'} | OS: ${m.os || '?'} | CIS: ${m.cis_score || '?'}`, 'info');
-    logEv(`Net risk: ${m.network_risk || '?'} | AI: ${m.ai_readiness || '?'}`, 'info');
-    setTimeout(startScan, 400); // short delay then animate
   }
 }
 
@@ -840,6 +950,17 @@ async function pollLatest() {
   }
 }
 
+// Fetch configured host on load so live labels and node subtitles use the real target
+fetch('/api/settings').then(r=>r.json()).then(d=>{
+  if(d.target_host){
+    configuredHost=d.target_host;
+    // Update network node subnet immediately
+    const ipMatch=configuredHost.match(/^(\d+\.\d+\.\d+)\.\d+$/);
+    const netNode=NODES.find(n=>n.id==='network');
+    if(netNode) netNode.sub=ipMatch?`${ipMatch[1]}.0/24`:`${configuredHost} network`;
+  }
+}).catch(()=>{});
+
 // Poll every 4 seconds
 setInterval(pollLatest, 4000);
 // Also check immediately on load
@@ -848,8 +969,239 @@ pollLatest();
 // ========== INIT ==========
 layoutNodes();
 applyPreset('harsh');
+userControlled = false; // reset so live data can override on first poll
 updateAccelHud();
 requestAnimationFrame(loop);
+
+// ========== FULLSCREEN ==========
+function toggleFullscreen(){
+  if(!document.fullscreenElement){
+    document.documentElement.requestFullscreen();
+    document.getElementById('btnFullscreen').textContent='[ X ]';
+  }else{
+    document.exitFullscreen();
+    document.getElementById('btnFullscreen').textContent='[ ]';
+  }
+}
+document.addEventListener('fullscreenchange',()=>{
+  if(!document.fullscreenElement) document.getElementById('btnFullscreen').textContent='[ ]';
+});
+
+// ========== PRESENTER BAR ==========
+let presenterBarVisible=false;
+function togglePresenterBar(){
+  presenterBarVisible=!presenterBarVisible;
+  document.getElementById('presenterBar').style.display=presenterBarVisible?'flex':'none';
+  document.getElementById('btnPresenter').style.borderColor=presenterBarVisible?'var(--accent2)':'';
+  document.getElementById('btnPresenter').style.color=presenterBarVisible?'var(--accent2)':'';
+}
+function pbarPreset(name){
+  applyPreset(name);
+  document.querySelectorAll('.pbar-scenario').forEach(b=>b.classList.toggle('pbar-active',b.dataset.p===name));
+}
+
+// ========== DEMO SEQUENCE ==========
+let demoStep=0; // 0=idle, 1=waiting after step1 scan, 2=done
+function startDemoSequence(){
+  demoStep=1;
+  document.getElementById('demoSeqBanner').classList.add('show');
+  document.getElementById('demoStepLabel').textContent='STEP 1 OF 2 — SCANNING HIGH RISK ENVIRONMENT';
+  document.getElementById('demoNextBtn').style.display='none';
+  applyPreset('nightmare');
+  document.querySelectorAll('.pbar-scenario').forEach(b=>b.classList.toggle('pbar-active',b.dataset.p==='nightmare'));
+  if(running) resetScan();
+  setTimeout(startScan,600);
+}
+function demoScanDone(){
+  if(demoStep===1){
+    document.getElementById('demoStepLabel').textContent='STEP 1 COMPLETE — Review findings, then click NEXT';
+    document.getElementById('demoNextBtn').style.display='inline-block';
+  }else if(demoStep===2){
+    document.getElementById('demoStepLabel').textContent='DEMO COMPLETE — Infrastructure secured ✓';
+    document.getElementById('demoNextBtn').style.display='none';
+    demoStep=0;
+  }
+}
+function demoNext(){
+  document.getElementById('modal').style.display='none';
+  demoStep=2;
+  document.getElementById('demoStepLabel').textContent='STEP 2 OF 2 — SCANNING BEST PRACTICE ENVIRONMENT';
+  document.getElementById('demoNextBtn').style.display='none';
+  applyPreset('clean');
+  document.querySelectorAll('.pbar-scenario').forEach(b=>b.classList.toggle('pbar-active',b.dataset.p==='clean'));
+  if(running) resetScan();
+  setTimeout(startScan,600);
+}
+function endDemo(){
+  demoStep=0;
+  document.getElementById('demoSeqBanner').classList.remove('show');
+  document.querySelectorAll('.pbar-scenario').forEach(b=>b.classList.remove('pbar-active'));
+}
+
+// ========== SETTINGS PANEL ==========
+let settingsUnlocked=false;
+let settingsPassword='';
+function openSettings(){
+  settingsUnlocked=false;
+  settingsPassword='';
+  document.getElementById('settingsGate').style.display='block';
+  document.getElementById('settingsForm').style.display='none';
+  document.getElementById('settingsPassInput').value='';
+  document.getElementById('settingsPassErr').textContent='';
+  document.getElementById('settingsSaveMsg').textContent='';
+  document.getElementById('settingsOverlay').style.display='flex';
+  setTimeout(()=>document.getElementById('settingsPassInput').focus(),100);
+}
+function closeSettings(){
+  document.getElementById('settingsOverlay').style.display='none';
+}
+async function unlockSettings(){
+  const pass=document.getElementById('settingsPassInput').value;
+  document.getElementById('settingsPassErr').textContent='';
+  try{
+    const res=await fetch('/api/settings/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pass})});
+    if(res.ok){
+      settingsPassword=pass;
+      settingsUnlocked=true;
+      document.getElementById('settingsGate').style.display='none';
+      document.getElementById('settingsForm').style.display='block';
+      loadSettings();
+    }else{
+      document.getElementById('settingsPassErr').textContent='Incorrect password.';
+    }
+  }catch(e){
+    document.getElementById('settingsPassErr').textContent='Could not connect to server.';
+  }
+}
+async function loadSettings(){
+  try{
+    const res=await fetch('/api/settings');
+    if(res.ok){
+      const d=await res.json();
+      document.getElementById('sClientName').value=d.client_name||'';
+      document.getElementById('sTargetHost').value=d.target_host||'';
+      document.getElementById('sDeployMode').value=d.deploy_mode||'claude';
+      document.getElementById('sDemoMode').checked=d.demo_mode||false;
+      document.getElementById('sApiKeyPlaceholder').textContent=d.api_key_set?'API key is set (leave blank to keep)':'Not set';
+    }
+  }catch(e){}
+}
+async function saveSettings(){
+  const msg=document.getElementById('settingsSaveMsg');
+  msg.style.color='var(--muted)';
+  msg.textContent='Saving...';
+  const payload={
+    password:settingsPassword,
+    client_name:document.getElementById('sClientName').value,
+    target_host:document.getElementById('sTargetHost').value,
+    deploy_mode:document.getElementById('sDeployMode').value,
+    demo_mode:document.getElementById('sDemoMode').checked,
+  };
+  const apiKey=document.getElementById('sApiKey').value.trim();
+  if(apiKey) payload.api_key=apiKey;
+  const newPass=document.getElementById('sNewPassword').value.trim();
+  if(newPass){ payload.new_password=newPass; settingsPassword=newPass; }
+  try{
+    const res=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d=await res.json();
+    if(d.ok){
+      msg.style.color='var(--safe)';
+      msg.textContent='Settings saved successfully.';
+      document.getElementById('sApiKey').value='';
+      document.getElementById('sNewPassword').value='';
+      loadSettings();
+    }else{
+      msg.style.color='var(--crit)';
+      msg.textContent=d.error||'Save failed.';
+    }
+  }catch(e){
+    msg.style.color='var(--crit)';
+    msg.textContent='Could not connect to server.';
+  }
+}
+document.getElementById('settingsPassInput').addEventListener('keydown',e=>{if(e.key==='Enter')unlockSettings()});
 </script>
+
+<!-- PRESENTER BAR -->
+<div id="presenterBar" style="display:none">
+  <span class="pbar-label">PRESENTER</span>
+  <div class="pbar-sep"></div>
+  <button class="pbar-btn pbar-scenario" data-p="clean" onclick="pbarPreset('clean')">BEST PRACTICE</button>
+  <button class="pbar-btn pbar-scenario" data-p="moderate" onclick="pbarPreset('moderate')">TYPICAL CLIENT</button>
+  <button class="pbar-btn pbar-scenario pbar-active" data-p="harsh" onclick="pbarPreset('harsh')">HIGH RISK</button>
+  <button class="pbar-btn pbar-scenario" data-p="nightmare" onclick="pbarPreset('nightmare')">WORST CASE</button>
+  <div class="pbar-sep"></div>
+  <button class="pbar-btn pbar-run" onclick="startScan()">&#9654; RUN SCAN</button>
+  <button class="pbar-btn pbar-present" onclick="startDemoSequence()">&#9654;&#9654; AUTO DEMO</button>
+  <div class="pbar-sep"></div>
+  <button class="pbar-btn pbar-fs" onclick="toggleFullscreen()">[ ] FULLSCREEN</button>
+</div>
+
+<!-- DEMO SEQUENCE BANNER -->
+<div id="demoSeqBanner">
+  <span class="demo-step-label" id="demoStepLabel">STEP 1 OF 2</span>
+  <button class="demo-next-btn" id="demoNextBtn" style="display:none" onclick="demoNext()">NEXT &#8594;</button>
+  <button class="demo-end-btn" onclick="endDemo()">&#10005; END DEMO</button>
+</div>
+
+<!-- SETTINGS OVERLAY -->
+<div id="settingsOverlay" style="display:none" class="settings-overlay">
+  <div class="settings-modal">
+    <div class="settings-title">&#9881; OPERATOR SETTINGS</div>
+
+    <!-- Password gate -->
+    <div id="settingsGate">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6">Enter the operator password to access configuration settings.</div>
+      <div class="settings-field">
+        <label class="settings-label">Operator Password</label>
+        <input type="password" class="settings-input" id="settingsPassInput" placeholder="Password">
+      </div>
+      <div id="settingsPassErr" style="color:var(--crit);font-size:11px;min-height:16px;margin-bottom:8px"></div>
+      <button class="run-btn" onclick="unlockSettings()">UNLOCK</button>
+    </div>
+
+    <!-- Settings form -->
+    <div id="settingsForm" style="display:none">
+      <div class="settings-field">
+        <label class="settings-label">Client Name</label>
+        <input type="text" class="settings-input" id="sClientName" placeholder="e.g. Everforth Technologies">
+      </div>
+      <div class="settings-field">
+        <label class="settings-label">Target Host (Live Scan)</label>
+        <input type="text" class="settings-input" id="sTargetHost" placeholder="e.g. 10.0.0.1 or server.local">
+      </div>
+      <div class="settings-field">
+        <label class="settings-label">Deploy Mode</label>
+        <select class="settings-select" id="sDeployMode">
+          <option value="claude">Claude — Anthropic API</option>
+          <option value="bedrock">AWS Bedrock (stays in client AWS account)</option>
+          <option value="ollama">Ollama — On-Prem / Air-Gap</option>
+        </select>
+      </div>
+      <div class="settings-field">
+        <div class="settings-toggle-row">
+          <label class="settings-label" style="margin-bottom:0">Demo Mode (mock data)</label>
+          <label class="toggle"><input type="checkbox" id="sDemoMode"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        </div>
+      </div>
+      <hr class="settings-divider">
+      <div class="settings-field">
+        <label class="settings-label">Anthropic API Key</label>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:5px" id="sApiKeyPlaceholder">Not set</div>
+        <input type="password" class="settings-input" id="sApiKey" placeholder="sk-ant-... (leave blank to keep current)">
+      </div>
+      <hr class="settings-divider">
+      <div class="settings-field">
+        <label class="settings-label">Change Operator Password</label>
+        <input type="password" class="settings-input" id="sNewPassword" placeholder="New password (leave blank to keep current)">
+      </div>
+      <button class="run-btn" onclick="saveSettings()">SAVE SETTINGS</button>
+      <div class="settings-msg" id="settingsSaveMsg"></div>
+    </div>
+
+    <button class="run-btn" style="margin-top:12px;background:transparent;border:1px solid var(--border);color:var(--muted)" onclick="closeSettings()">CLOSE</button>
+  </div>
+</div>
+
 </body>
 </html>

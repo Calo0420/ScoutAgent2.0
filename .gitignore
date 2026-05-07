@@ -33,3 +33,6 @@ id_ed25519*
 *.egg-info/
 dist/
 build/
+
+# Credentials doc — never commit
+CREDENTIALS.md

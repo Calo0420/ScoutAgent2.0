@@ -1,0 +1,41 @@
+version: "3.8"
+
+# ── Everforth Scout — Hostile Lab ────────────────────────────────────────────
+# Deliberately misconfigured services that trigger real scanner findings.
+# Run: docker compose up -d
+# Stop: docker compose down
+
+services:
+
+  # Triggers: mongo finding (MongoDB open, no auth)
+  mongodb:
+    image: mongo:7
+    container_name: scout-mongo
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+    # No MONGO_INITDB_ROOT_USERNAME/PASSWORD = no auth
+
+  # Triggers: redis finding (Redis open, no auth)
+  redis:
+    image: redis:7-alpine
+    container_name: scout-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    command: redis-server --protected-mode no
+    # No requirepass = no auth, protected-mode off = accepts external connections
+
+  # Triggers: telnet finding (Telnet active)
+  telnet:
+    image: alpine:3.19
+    container_name: scout-telnet
+    ports:
+      - "23:23"
+    restart: unless-stopped
+    command: sh -c "apk add -q busybox-extras && telnetd -F -l /bin/sh"
+    # Unauthenticated telnet shell — plaintext credentials
+
+networks:
+  default:
+    name: hostile-lab

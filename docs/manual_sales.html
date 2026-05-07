@@ -7,22 +7,22 @@
 <style>
 /* ── Base Variables ── */
 :root {
-  --bg: #050d05;
-  --surface: #091209;
-  --surface2: #0d1a0e;
-  --border: #162416;
-  --border2: #1e341e;
-  --text: #b8ccb0;
-  --text-muted: #4a6050;
-  --text-bright: #d4e8cc;
-  --accent: #2dd4a0;
-  --accent2: #1aaa7a;
-  --accent-dim: rgba(45,212,160,.15);
-  --gold: #d4a840;
-  --gold-dim: rgba(212,168,64,.12);
-  --warn: #e8c840;
+  --bg: #07090e;
+  --surface: #0e1520;
+  --surface2: #121a26;
+  --border: #2a3d52;
+  --border2: #3a5068;
+  --text: #c8d8e8;
+  --text-muted: #828A91;
+  --text-bright: #f0f4f8;
+  --accent: #6b8caa;
+  --accent2: #8aaece;
+  --accent-dim: rgba(107,140,170,.15);
+  --gold: #8aaece;
+  --gold-dim: rgba(138,174,206,.12);
+  --warn: #f0d050;
   --danger: #ff4444;
-  --code-bg: #060f07;
+  --code-bg: #060810;
   --nav-width: 260px;
   --heading-font: 'Segoe UI', system-ui, sans-serif;
   --mono-font: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
@@ -151,7 +151,7 @@ nav .nav-section {
   font-family: var(--heading-font);
   transition: all 0.2s;
 }
-.print-btn:hover { background: rgba(212,168,64,.22); }
+.print-btn:hover { background: rgba(107,140,170,.22); }
 
 /* ── Main Content ── */
 .main {
@@ -241,7 +241,7 @@ p { margin-bottom: 14px; color: var(--text); }
 
 /* ── Script Block (memorize-this pitch) ── */
 .script-block {
-  background: linear-gradient(135deg, var(--surface2) 0%, rgba(212,168,64,.06) 100%);
+  background: linear-gradient(135deg, var(--surface2) 0%, rgba(107,140,170,.06) 100%);
   border: 1px solid var(--gold);
   border-left: 4px solid var(--gold);
   border-radius: 4px;
@@ -274,7 +274,7 @@ p { margin-bottom: 14px; color: var(--text); }
 
 /* ── Say This / Not This Blocks ── */
 .say-this {
-  background: rgba(45,212,160,.05);
+  background: rgba(107,140,170,.07);
   border: 1px solid var(--accent2);
   border-left: 3px solid var(--accent);
   border-radius: 3px;
@@ -340,7 +340,7 @@ tbody td {
   vertical-align: top;
 }
 
-tbody tr:hover { background: rgba(212,168,64,.03); }
+tbody tr:hover { background: rgba(107,140,170,.05); }
 
 /* ── Checklists ── */
 .checklist { list-style: none; padding-left: 0; margin: 14px 0; }
@@ -373,7 +373,7 @@ pre {
   font-family: var(--mono-font);
   font-size: 13px;
   line-height: 1.6;
-  color: #a8d8a0;
+  color: #828A91;
 }
 
 code {
@@ -409,7 +409,7 @@ pre code {
 .callout-icon { flex-shrink: 0; font-size: 16px; margin-top: 1px; }
 
 .callout.note {
-  background: rgba(45,212,160,.06);
+  background: rgba(107,140,170,.07);
   border-color: var(--accent2);
   color: var(--text);
 }

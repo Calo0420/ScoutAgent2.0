@@ -7,15 +7,90 @@ Run: uvicorn server:app --host 0.0.0.0 --port 7070
 import json
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Body
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 REPORTS_DIR = Path(__file__).parent.parent / "reports"
 DOCS_DIR    = Path(__file__).parent.parent / "docs"
 UI_DIR      = Path(__file__).parent
+ENV_PATH    = Path(__file__).parent.parent / ".env"
+
+DEFAULT_OPERATOR_PASSWORD = "scouter2"
 
 app = FastAPI()
+
+
+# ── Settings helpers ──────────────────────────────────────────────────────────
+
+def read_env() -> dict:
+    env = {}
+    if ENV_PATH.exists():
+        for line in ENV_PATH.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                k, _, v = line.partition('=')
+                env[k.strip()] = v.strip()
+    return env
+
+
+def write_env(updates: dict):
+    lines = []
+    updated_keys = set()
+    if ENV_PATH.exists():
+        for line in ENV_PATH.read_text().splitlines():
+            stripped = line.strip()
+            if stripped and not stripped.startswith('#') and '=' in stripped:
+                k = stripped.partition('=')[0].strip()
+                if k in updates:
+                    lines.append(f"{k}={updates[k]}")
+                    updated_keys.add(k)
+                else:
+                    lines.append(line)
+            else:
+                lines.append(line)
+    for k, v in updates.items():
+        if k not in updated_keys:
+            lines.append(f"{k}={v}")
+    ENV_PATH.write_text('\n'.join(lines) + '\n')
+
+
+@app.post("/api/settings/auth")
+def auth_settings(payload: dict = Body(...)):
+    env = read_env()
+    password = env.get("OPERATOR_PASSWORD", DEFAULT_OPERATOR_PASSWORD)
+    if payload.get("password") == password:
+        return JSONResponse({"ok": True})
+    return JSONResponse({"ok": False, "error": "Invalid password"}, status_code=401)
+
+
+@app.get("/api/settings")
+def get_settings():
+    env = read_env()
+    return JSONResponse({
+        "deploy_mode":  env.get("DEPLOY_MODE", "claude"),
+        "demo_mode":    env.get("DEMO_MODE", "false") == "true",
+        "client_name":  env.get("CLIENT_NAME", ""),
+        "target_host":  env.get("TARGET_HOST", ""),
+        "api_key_set":  bool(env.get("ANTHROPIC_API_KEY", "").strip()),
+    })
+
+
+@app.post("/api/settings")
+def save_settings(payload: dict = Body(...)):
+    env = read_env()
+    password = env.get("OPERATOR_PASSWORD", DEFAULT_OPERATOR_PASSWORD)
+    if payload.get("password") != password:
+        return JSONResponse({"ok": False, "error": "Invalid password"}, status_code=401)
+    updates = {}
+    if "deploy_mode"  in payload: updates["DEPLOY_MODE"]  = payload["deploy_mode"]
+    if "demo_mode"    in payload: updates["DEMO_MODE"]    = "true" if payload["demo_mode"] else "false"
+    if "client_name"  in payload: updates["CLIENT_NAME"]  = payload["client_name"]
+    if "target_host"  in payload: updates["TARGET_HOST"]  = payload["target_host"]
+    if payload.get("api_key"):    updates["ANTHROPIC_API_KEY"] = payload["api_key"]
+    if payload.get("new_password"): updates["OPERATOR_PASSWORD"] = payload["new_password"]
+    write_env(updates)
+    return JSONResponse({"ok": True})
 
 
 @app.get("/api/latest")
