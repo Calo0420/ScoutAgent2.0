@@ -93,6 +93,56 @@ def save_settings(payload: dict = Body(...)):
     return JSONResponse({"ok": True})
 
 
+@app.get("/api/report/latest")
+def download_latest_report():
+    """Convert latest scan report to PDF and serve for download."""
+    latest_json = REPORTS_DIR / "latest.json"
+    if not latest_json.exists():
+        return JSONResponse({"error": "No scan report available"}, status_code=404)
+    try:
+        import markdown
+        from weasyprint import HTML, CSS
+        from fastapi.responses import Response
+
+        data = json.loads(latest_json.read_text())
+        scan_id = data.get("scan_id", "report")
+        md_file = REPORTS_DIR / f"{scan_id}.md"
+        if not md_file.exists():
+            return JSONResponse({"error": "Report file not found"}, status_code=404)
+
+        md_text = md_file.read_text()
+        body_html = markdown.markdown(md_text, extensions=["tables", "fenced_code"])
+
+        html = f"""<!DOCTYPE html><html><head><meta charset="utf-8">
+        <style>
+          body {{ font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px;
+                 color: #1a2330; margin: 40px 50px; line-height: 1.6; }}
+          h1 {{ color: #44546A; font-size: 22px; border-bottom: 2px solid #44546A; padding-bottom: 6px; }}
+          h2 {{ color: #44546A; font-size: 16px; margin-top: 28px; }}
+          h3 {{ color: #828A91; font-size: 14px; }}
+          table {{ border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 12px; }}
+          th {{ background: #44546A; color: #fff; padding: 6px 10px; text-align: left; }}
+          td {{ padding: 5px 10px; border-bottom: 1px solid #ddd; }}
+          tr:nth-child(even) {{ background: #f5f7f9; }}
+          code, pre {{ background: #f0f4f8; padding: 2px 6px; border-radius: 3px;
+                       font-family: monospace; font-size: 11px; }}
+          pre {{ padding: 10px; overflow-x: auto; }}
+          blockquote {{ border-left: 3px solid #828A91; margin: 8px 0;
+                        padding: 4px 12px; color: #828A91; background: #f5f7f9; }}
+          hr {{ border: none; border-top: 1px solid #ddd; margin: 20px 0; }}
+          @page {{ margin: 2cm; size: A4; }}
+        </style></head><body>{body_html}</body></html>"""
+
+        pdf_bytes = HTML(string=html).write_pdf()
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={scan_id}.pdf"}
+        )
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 @app.get("/api/latest")
 def get_latest():
     latest = REPORTS_DIR / "latest.json"

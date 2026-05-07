@@ -285,6 +285,7 @@ canvas{display:block;position:relative;z-index:1}
   <div class="modal">
     <div style="text-align:center;margin-bottom:16px">
       <div class="mono" style="font-size:10px;letter-spacing:3px;color:var(--accent)">ASSESSMENT RESULTS</div>
+      <div id="mScanMeta" style="font-size:10px;color:var(--muted);margin:4px 0 8px;font-family:'Share Tech Mono',monospace"></div>
       <div class="modal-score" id="mScore" style="color:var(--accent)">--</div>
       <div class="modal-grade" id="mGrade" style="color:var(--muted)">--</div>
       <div id="mVerdict" style="margin-top:10px;font-size:12px;color:var(--text);line-height:1.5;padding:8px 12px;background:rgba(255,255,255,.04);border-radius:3px;border:1px solid var(--border)"></div>
@@ -295,7 +296,10 @@ canvas{display:block;position:relative;z-index:1}
       <div style="font-size:10px;letter-spacing:1px;color:var(--crit);margin-bottom:4px">&#9888; NOT COVERED — MODULE DISABLED</div>
       <div class="miss-list" id="mMissList"></div>
     </div>
-    <button class="run-btn" style="margin-top:16px" onclick="document.getElementById('modal').style.display='none'">CLOSE REPORT</button>
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="run-btn" style="flex:1" onclick="document.getElementById('modal').style.display='none'">CLOSE REPORT</button>
+      <a id="btnDownloadReport" href="/api/report/latest" download class="run-btn" style="flex:1;text-align:center;text-decoration:none;display:none">&#11015; DOWNLOAD REPORT</a>
+    </div>
   </div>
 </div>
 
@@ -708,6 +712,20 @@ function finalizeScan(){
   running=false;
   document.getElementById('runBtn').textContent='&#9654; RUN SCAN';
   document.getElementById('hudScan').textContent='COMPLETE';
+  // Scan meta line — show host and timestamp
+  const metaEl=document.getElementById('mScanMeta');
+  if(metaEl){
+    const isLive=Object.keys(liveDetails).length>0;
+    if(isLive){
+      const host=configuredHost||liveMeta.host||'live host';
+      const os=liveMeta.os?` · ${liveMeta.os}`:'';
+      const now=new Date().toLocaleString();
+      metaEl.textContent=`${host}${os} · scanned ${now}`;
+    } else {
+      metaEl.textContent='demo mode · no real scan performed';
+      metaEl.style.color='var(--high)';
+    }
+  }
 
   const allVulns=getActiveConfigs();
   const catchable=allVulns.filter(([k,v])=>accels[v.accel]);
@@ -779,6 +797,9 @@ function finalizeScan(){
     document.getElementById('mMisses').style.display='none';
   }
 
+  // Show download button only when live scan data is available
+  const dlBtn=document.getElementById('btnDownloadReport');
+  if(dlBtn) dlBtn.style.display=Object.keys(liveDetails).length>0?'block':'none';
   setTimeout(()=>document.getElementById('modal').style.display='flex',600);
 }
 

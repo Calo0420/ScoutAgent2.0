@@ -1,269 +1,252 @@
-# Scouter 2.0 — AI Infrastructure Scout Agent
+# ScoutAgent 2.0
+### AI Infrastructure Scout — by Everforth
 
-> One command. One agent. Client-ready infrastructure assessment in minutes.
+> *"We scan it. We explain it. We show you what it costs you."*
 
-**Powered by Claude (Anthropic) · Covers 6 of 11 Everforth Accelerators · Three deployment modes**
+ScoutAgent 2.0 is a Claude-powered infrastructure assessment tool that connects to a client's Linux server, runs a comprehensive security and operational audit, and produces a board-ready PDF report — all in under 10 minutes, with no client-side software required.
 
 ---
 
 ## What It Does
 
-Scouter 2.0 is an autonomous AI agent that replaces weeks of manual infrastructure consulting work with a single CLI command. Point it at a client environment — a Linux server, a VMware vCenter, a network subnet, or all three — and it returns a structured, executive-ready report covering security posture, cost savings, and a migration roadmap.
-
-No agents to manage. No dashboards to configure. One Python file, one command.
+| Phase | What Happens |
+|---|---|
+| **Connect** | Agent SSHs into the target server (read-only, no changes made) |
+| **Scan** | Runs parallel assessments across security, network, automation, and AI readiness |
+| **Score** | Produces a severity-weighted health score (0–100) with letter grade |
+| **Report** | Generates a full executive PDF report with risk register, roadmap, and cost estimates |
+| **Present** | Live dashboard with animated topology visualization for client-facing demos |
 
 ---
 
 ## Accelerators Covered
 
-| ID | Accelerator | What Scout Does |
-|----|-------------|-----------------|
-| A1 | Linux Fast Track | SSH scan: OS, kernel, CPU/RAM/disk, uptime, users, open ports, last patch, last reboot |
-| A2 | Linux Hardening Sprint | CIS Benchmark Level 1 spot checks — pass/fail per control with remediation steps |
-| A3 | Network Health Check | Subnet discovery, risky open port detection (Telnet, RDP, MongoDB, Redis), latency baseline |
-| A5 | VMware Cost Optimizer | vCenter inventory, powered-off VMs, oversized VMs, snapshot waste, dollar savings estimate |
-| A7 | AI Stack Assessment | GPU/CUDA detection, model serving frameworks, vector databases, ML frameworks, security gaps |
-| A8 | Automation & IaC | Detects Ansible, Terraform, Puppet, Chef, Salt, Docker, Jenkins — maturity rating |
-
-**6 accelerators. One tool.**
+| ID | Name | What It Detects |
+|---|---|---|
+| **A1** | Linux Fast Track | OS health, open ports, user accounts, uptime, disk, patch status |
+| **A2** | Linux Hardening Sprint | CIS Benchmark Level 1 (10 controls), SELinux/AppArmor, auditd, umask |
+| **A3** | Network Health Check | Live host discovery, risky open ports (Telnet, RDP, MongoDB, Redis) via nmap |
+| **A5** | VMware Cost Optimizer | Powered-off VMs, oversized VMs, unmanaged snapshots via vCenter API |
+| **A7** | AI Stack Assessment | GPU detection, CUDA, ML frameworks, model serving platforms, vector DBs |
+| **A8** | Automation & IaC | Ansible, Terraform, Jenkins, CI/CD pipeline maturity |
 
 ---
 
-## Report Output
+## Dashboard
 
-Every run produces a Markdown executive report saved to `reports/<client>_<timestamp>.md`.
+The live web dashboard runs on port `7070` and provides:
 
-The report contains 6 structured sections:
-
-1. **Executive Summary** — situation, top findings, top 3 recommendations (CIO-readable in under 5 minutes)
-2. **Server Inventory** — full asset table with OS, CPU, RAM, end-of-support dates, risk flags
-3. **Risk Map** — heat map + risk register (likelihood × impact scoring per finding)
-4. **Savings Estimate** — annual savings, 3-year TCO comparison, break-even, confidence level
-5. **License Cost Comparison** — current vs Linux/alternative, per-server cost detail
-6. **Migration Roadmap** — concrete 30/60/90-day phases with scope and success criteria
-
-Each section ends with the applicable accelerator reference.
-
-See [`docs/SAMPLE_REPORT.md`](docs/SAMPLE_REPORT.md) for a full example output.
+- **Real-time topology canvas** — animated network map showing findings as they are detected
+- **Severity-weighted health score** — 0–100 with letter grade (A through F)
+- **Presenter mode** — fullscreen with floating control bar for client meetings
+- **Auto-demo sequence** — guided walkthrough from worst-case to best-practice scenarios
+- **Settings panel** — operator configuration without touching code
+- **PDF report download** — one-click branded report delivery after scan
 
 ---
 
 ## Quick Start
 
-### Option 1 — Demo Mode (no real infrastructure needed)
+### Prerequisites
+- Debian or Ubuntu Linux server
+- Root or sudo access
+- Python 3.10+
+- An [Anthropic API key](https://console.anthropic.com/)
 
-The fastest way to see a full report. Uses realistic mock data.
+### Install
 
 ```bash
-git clone https://github.com/calo004200-dev/Scouter2.0.git
-cd Scouter2.0
-pip install -r requirements.txt
-
-export ANTHROPIC_API_KEY=sk-ant-...
-python agent.py --demo --client "Acme Corp"
+git clone https://github.com/Calo0420/ScoutAgent2.0.git /opt/ScoutAgent2.0
+cd /opt/ScoutAgent2.0
+cp .env.example .env
+nano .env          # add your API key and client info
+bash install.sh
 ```
 
-Report saved to `reports/acme_corp_<timestamp>.md`.
+The installer handles everything: system packages, Python venv, dependencies, self-scan SSH key, hostile lab containers, and UI server startup.
+
+### Access the Dashboard
+
+```
+http://<server-ip>:7070
+```
 
 ---
 
-### Option 2 — Python Direct
+## Running a Scan
 
 ```bash
-pip install -r requirements.txt
-export ANTHROPIC_API_KEY=sk-ant-...
+cd /opt/ScoutAgent2.0
+export $(grep -v '^#' .env | xargs)
 
-# Scan a Linux host
-python agent.py --client "Acme Corp" --host 10.0.0.5 --user admin --key ~/.ssh/id_rsa
+# Self-scan (agent scans the machine it runs on)
+.venv/bin/python agent.py \
+  --client "Client Name" \
+  --host localhost \
+  --user root \
+  --key /root/.ssh/scout_local_key \
+  --subnet 192.168.1.0/24
 
-# Scan vCenter
-python agent.py --client "Acme Corp" --vcenter vc.acme.local --vc-user admin --vc-pass secret
-
-# Scan a network subnet
-python agent.py --client "Acme Corp" --subnet 10.0.0.0/24
-
-# Full scan — all three at once
-python agent.py --client "Acme Corp" \
-  --host 10.0.0.5 --user admin --key ~/.ssh/id_rsa \
-  --vcenter vc.acme.local --vc-user admin --vc-pass secret \
+# Remote server scan
+.venv/bin/python agent.py \
+  --client "Client Name" \
+  --host 10.0.0.10 \
+  --user admin \
+  --key ~/.ssh/client_key \
   --subnet 10.0.0.0/24
+
+# With VMware vCenter
+.venv/bin/python agent.py \
+  --host 10.0.0.10 --user admin --key ~/.ssh/key \
+  --vcenter vc.client.local \
+  --vc-user administrator@vsphere.local \
+  --vc-pass YourPassword
 ```
 
 ---
 
-### Option 3 — Docker (recommended for client engagements)
+## Environment Configuration
 
-```bash
-docker build -t scouter:latest .
+Copy `.env.example` to `.env`:
 
-# Linux host scan
-docker run --rm --network host \
-  -e ANTHROPIC_API_KEY=sk-ant-... \
-  -v $(pwd)/reports:/app/reports \
-  scouter:latest \
-  --client "Acme Corp" --host 10.0.0.5 --user admin --key /app/keys/id_rsa
-
-# vCenter scan
-docker run --rm --network host \
-  -e ANTHROPIC_API_KEY=sk-ant-... \
-  -v $(pwd)/reports:/app/reports \
-  scouter:latest \
-  --client "Acme Corp" --vcenter vc.acme.local --vc-user admin --vc-pass secret
-
-# Network scan
-docker run --rm --network host \
-  -e ANTHROPIC_API_KEY=sk-ant-... \
-  -v $(pwd)/reports:/app/reports \
-  scouter:latest \
-  --client "Acme Corp" --subnet 10.0.0.0/24
-```
-
----
-
-## CLI Reference
-
-| Flag | Description |
-|------|-------------|
-| `--client` | Client name for the report (default: "Client") |
-| `--host` | Linux host IP or hostname |
-| `--user` | SSH username |
-| `--key` | Path to SSH private key (preferred) |
-| `--password` | SSH password (fallback if no key) |
-| `--vcenter` | vCenter hostname or IP |
-| `--vc-user` | vCenter username |
-| `--vc-pass` | vCenter password |
-| `--subnet` | Network subnet in CIDR notation (e.g. `10.0.0.0/24`) |
-| `--demo` | Run with mock data — no real infrastructure required |
-
----
-
-## Deployment Modes
-
-Controlled by the `DEPLOY_MODE` environment variable. Three backends supported:
-
-| Mode | Backend | Data Leaves Client? | Use Case |
-|------|---------|---------------------|----------|
-| `claude` | Anthropic API (default) | Encrypted, Anthropic policy | Standard commercial clients |
-| `bedrock` | AWS Bedrock | Never — stays in client AWS account | HIPAA, SOC2, regulated clients |
-| `ollama` | Local LLM server | Never — fully air-gapped | Government, classified environments |
-
-### Claude (default)
-```bash
-DEPLOY_MODE=claude
+```env
+# Required
 ANTHROPIC_API_KEY=sk-ant-...
+OPERATOR_PASSWORD=your-secure-password
+
+# Deployment mode: claude | bedrock | ollama
+DEPLOY_MODE=claude
+
+# Client info (appears in reports and dashboard)
+CLIENT_NAME=Acme Corp
+TARGET_HOST=192.168.1.100
+
+# Set true to run with mock data (no real scan needed)
+DEMO_MODE=false
 ```
 
-### AWS Bedrock
-```bash
-DEPLOY_MODE=bedrock
-AWS_ACCESS_KEY_ID=AKIA...
-AWS_SECRET_ACCESS_KEY=...
-AWS_REGION=us-east-1
-```
+### Deploy Modes
 
-### Ollama (air-gap / on-prem)
-```bash
-DEPLOY_MODE=ollama
-OLLAMA_BASE_URL=http://gpu-server.internal:11434/v1
-OLLAMA_MODEL=llama3
-```
-
-Copy `.env.example` to `.env` and fill in your values.
-
----
-
-## Architecture
-
-```
-CLI command
-     |
-agent.py  (Claude — routes and reasons about what to scan)
-     |
-     +-- scan_linux_environment()    SSH read-only   (A1)
-     +-- check_cis_benchmarks()      SSH read-only   (A2)
-     +-- scan_network_health()       nmap passive    (A3)
-     +-- scan_vmware_environment()   pyVmomi HTTPS   (A5)
-     +-- assess_ai_stack()           SSH read-only   (A7)
-     +-- audit_automation_maturity() SSH read-only   (A8)
-     |
-generate_executive_report()
-     |
-reports/<client>_<timestamp>.md
-```
-
-Claude acts as the reasoning layer. It receives the user request, decides which tools are applicable based on the credentials provided, calls them in sequence, correlates findings across scans, and synthesizes everything into the structured report. No hardcoded scan order — the agent reasons about it.
-
-If a tool fails (unreachable host, auth error, timeout), the agent continues with remaining scans and notes the failure in the report.
-
----
-
-## Security
-
-- **Read-only** — zero writes, zero config changes to any client system
-- **No persistence** — findings exist only in the local report output
-- **Credentials via env vars only** — never baked into the image or code
-- **SSH keys preferred** — password auth supported but not recommended
-- **Bedrock mode** — zero data reaches Anthropic infrastructure
-- **Ollama mode** — zero data leaves the physical facility
+| Mode | Description | When to Use |
+|---|---|---|
+| `claude` | Direct Anthropic API | Default — fast, full features |
+| `bedrock` | AWS Bedrock (Claude) | Client requires data to stay in their AWS account |
+| `ollama` | Local LLM via Ollama | Air-gapped / fully on-prem environments |
 
 ---
 
 ## Project Structure
 
 ```
-Scouter2.0/
-├── agent.py                   # Main agent — Claude brain + tool loop
+ScoutAgent2.0/
+├── agent.py                  # Main orchestration agent (Claude API)
+├── install.sh                # One-command installer
+├── requirements.txt          # Python dependencies
+├── .env.example              # Environment template
+│
 ├── tools/
-│   ├── linux_scout.py         # A1, A2, A8 — SSH-based scans
-│   ├── vmware_scout.py        # A5 — vCenter inventory via pyVmomi
-│   ├── network_scout.py       # A3 — nmap network discovery
-│   ├── ai_stack_scout.py      # A7 — AI/ML stack assessment
-│   └── mock_tools.py          # Demo mode — realistic mock data
+│   ├── linux_scout.py        # A1/A2/A8 — Linux, CIS, Automation
+│   ├── network_scout.py      # A3 — Network health via nmap
+│   ├── vmware_scout.py       # A5 — VMware vCenter via pyVmomi
+│   ├── ai_stack_scout.py     # A7 — GPU, ML frameworks, model serving
+│   └── mock_tools.py         # Demo mode mock data
+│
+├── ui/
+│   ├── index.html            # Dashboard (single-file, zero build step)
+│   └── server.py             # FastAPI server (port 7070)
+│
 ├── docs/
-│   ├── TECHNICAL.md           # Architecture and tool reference
-│   ├── DELIVERY.md            # Report structure and QA checklist
-│   └── SAMPLE_REPORT.md       # Example output from a full scan
-├── reports/                   # Generated reports land here (gitignored)
-├── .env.example               # Environment variable reference
-├── Dockerfile
-├── docker-compose.yml
-└── requirements.txt
+│   ├── manual_client_it.html # Client IT Team manual
+│   └── manual_sales.html     # Sales Playbook
+│
+├── hostile-lab/
+│   └── docker-compose.yml    # Demo misconfiguration environment
+│
+└── reports/                  # Generated scan reports (gitignored)
 ```
 
 ---
 
-## Requirements
+## Hostile Lab
 
-- Python 3.12+ or Docker
-- `ANTHROPIC_API_KEY` (or AWS/Ollama credentials for alternate backends)
-- Network access to target hosts (SSH port 22, vCenter port 443)
-- `nmap` installed (included in the Docker image)
+The hostile lab spins up deliberately misconfigured services so every finding shown in a demo is **100% real** — not simulated.
 
+```bash
+cd /opt/ScoutAgent2.0/hostile-lab
+docker compose up -d
 ```
-anthropic>=0.25.0    # Claude API + Bedrock client
-paramiko>=3.4.0      # SSH transport
-pyVmomi>=8.0.2       # VMware vCenter API
-python-dotenv>=1.0.0 # Environment config
-openai>=1.0.0        # Required only for DEPLOY_MODE=ollama
-```
+
+| Container | Port | Finding Triggered |
+|---|---|---|
+| `scout-mongo` | 27017 | MongoDB exposed — no authentication |
+| `scout-redis` | 6379 | Redis exposed — no authentication |
+| `scout-telnet` | 23 | Telnet active — plaintext credentials |
+
+Combined with native server misconfigurations (root SSH, no MAC enforcement, exposed RDP), this produces a fully authentic HIGH RISK scan result for live demonstrations.
 
 ---
 
-## Documentation
+## Report Output
 
-| Document | Description |
-|----------|-------------|
-| [`docs/TECHNICAL.md`](docs/TECHNICAL.md) | Full architecture, tool specs, deployment guide |
-| [`docs/DELIVERY.md`](docs/DELIVERY.md) | Report structure, QA checklist, delivery standards |
-| [`docs/SAMPLE_REPORT.md`](docs/SAMPLE_REPORT.md) | Full example report from a demo run |
-| [`.env.example`](.env.example) | All environment variables with documentation |
+After each scan, two files are written to `reports/`:
+
+| File | Format | Contents |
+|---|---|---|
+| `<scan_id>.md` | Markdown | Full report source |
+| `<scan_id>.json` | JSON | Structured findings for dashboard |
+
+The report includes:
+
+- Executive Summary with top 3 prioritized recommendations
+- Server Inventory table
+- Risk Heat Map and Risk Register
+- CIS Benchmark audit (10 controls with pass/fail)
+- Breach cost avoidance estimates and 3-year TCO comparison
+- License and OS support comparison
+- 30/60/90-day Migration Roadmap
+
+Download as a branded PDF directly from the dashboard after scan completion.
+
+---
+
+## Dashboard Keyboard Shortcuts
+
+| Key | Action |
+|---|---|
+| `F` | Toggle fullscreen |
+| `P` | Toggle presenter bar |
+| `1` – `5` | Load preset scenarios |
+| `N` | Worst Case scenario |
+| `C` | Best Practice scenario |
+| `ESC` | Close modal / end demo |
+
+---
+
+## Included Manuals
+
+| Manual | URL | Audience |
+|---|---|---|
+| Client IT Team | `/manual/client-it` | Technical stakeholders, sysadmins |
+| Sales Playbook | `/manual/sales` | Account executives, pre-sales engineers |
+
+---
+
+## Security Notes
+
+- **Read-only** — the agent never modifies the target system
+- **No software installed on client** — scan runs entirely from the operator's side
+- **API key stays local** — never transmitted to the client environment
+- **Reports stored locally** — never uploaded to third-party services
+- The hostile lab is intentionally insecure — **never run in production**
 
 ---
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
+Proprietary — Everforth / Apex Systems. Internal use only.
 
 ---
 
-*Built by [calo004200-dev](https://github.com/calo004200-dev)*
+<div align="center">
+  <sub>Built with Claude Sonnet 4.6 &nbsp;·&nbsp; Everforth AI Infrastructure Practice &nbsp;·&nbsp; 2026</sub>
+</div>

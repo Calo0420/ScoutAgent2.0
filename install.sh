@@ -10,7 +10,7 @@
 set -e
 
 INSTALL_DIR="/opt/ScoutAgent2.0"
-REPO_URL="https://github.com/calo004200-dev/Scouter2.0.git"
+REPO_URL="https://github.com/Calo0420/ScoutAgent2.0.git"
 VENV="$INSTALL_DIR/.venv"
 
 echo ""
@@ -47,6 +47,7 @@ echo "[3/6] Setting up Python environment..."
 python3 -m venv "$VENV"
 "$VENV/bin/pip" install -q --upgrade pip
 "$VENV/bin/pip" install -q -r "$INSTALL_DIR/requirements.txt"
+"$VENV/bin/pip" install -q weasyprint markdown
 echo "      ✓ venv ready"
 
 # ── 4. .env config ────────────────────────────────────────────────────────────

@@ -46,7 +46,7 @@ def scan_network_health(target_subnet: str) -> dict:
         host_entry = {"ip": host, "open_risky_ports": []}
         try:
             port_result = subprocess.run(
-                ["nmap", "-T4", "--open", "-p", ",".join(map(str, risky_ports.keys())), host, "-oG", "-"],
+                ["nmap", "-sT", "-T4", "--open", "-p", ",".join(map(str, risky_ports.keys())), host, "-oG", "-"],
                 capture_output=True, text=True, timeout=30
             )
             for line in port_result.stdout.splitlines():
