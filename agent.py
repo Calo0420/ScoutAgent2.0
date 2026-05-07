@@ -240,10 +240,10 @@ def map_findings_to_ui(all_findings: dict, client_name: str, ts: str,
     vmw = all_findings.get("scan_vmware_environment", {})
     findings["vmsoff"]   = bool(vmw.get("powered_off_vms"))
     findings["oversize"] = bool(vmw.get("oversized_vms"))
-    findings["snap"]     = bool(vmw.get("risky_snapshots"))
+    findings["snap"]     = bool(vmw.get("vms_with_snapshots"))
     details["vmsoff"]   = f"{len(vmw.get('powered_off_vms', []))} VMs" if vmw.get("powered_off_vms") else ""
     details["oversize"] = str(vmw.get("oversized_vms", ""))
-    details["snap"]     = str(vmw.get("risky_snapshots", ""))
+    details["snap"]     = str(vmw.get("vms_with_snapshots", ""))
 
     # AI stack
     ai = all_findings.get("assess_ai_stack", {})

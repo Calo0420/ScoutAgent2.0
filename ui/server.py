@@ -5,6 +5,9 @@ Serves the UI on / and exposes /api/latest for live scan results.
 Run: uvicorn server:app --host 0.0.0.0 --port 7070
 """
 import json
+import os
+import subprocess
+import threading
 from pathlib import Path
 
 from fastapi import FastAPI, Body
@@ -15,6 +18,12 @@ REPORTS_DIR = Path(__file__).parent.parent / "reports"
 DOCS_DIR    = Path(__file__).parent.parent / "docs"
 UI_DIR      = Path(__file__).parent
 ENV_PATH    = Path(__file__).parent.parent / ".env"
+AGENT_PATH  = Path(__file__).parent.parent / "agent.py"
+PYTHON_PATH = Path(__file__).parent.parent / ".venv" / "bin" / "python3"
+ROOT_DIR    = Path(__file__).parent.parent
+
+_scan_lock = threading.Lock()
+_scan_proc = None
 
 DEFAULT_OPERATOR_PASSWORD = "scouter2"
 
@@ -72,6 +81,8 @@ def get_settings():
         "demo_mode":    env.get("DEMO_MODE", "false") == "true",
         "client_name":  env.get("CLIENT_NAME", ""),
         "target_host":  env.get("TARGET_HOST", ""),
+        "ssh_user":     env.get("SSH_USER", "root"),
+        "ssh_key":      env.get("SSH_KEY", ""),
         "api_key_set":  bool(env.get("ANTHROPIC_API_KEY", "").strip()),
     })
 
@@ -87,10 +98,54 @@ def save_settings(payload: dict = Body(...)):
     if "demo_mode"    in payload: updates["DEMO_MODE"]    = "true" if payload["demo_mode"] else "false"
     if "client_name"  in payload: updates["CLIENT_NAME"]  = payload["client_name"]
     if "target_host"  in payload: updates["TARGET_HOST"]  = payload["target_host"]
+    if "ssh_user"     in payload: updates["SSH_USER"]     = payload["ssh_user"]
+    if "ssh_key"      in payload: updates["SSH_KEY"]      = payload["ssh_key"]
     if payload.get("api_key"):    updates["ANTHROPIC_API_KEY"] = payload["api_key"]
     if payload.get("new_password"): updates["OPERATOR_PASSWORD"] = payload["new_password"]
     write_env(updates)
     return JSONResponse({"ok": True})
+
+
+@app.post("/api/run")
+def run_scan():
+    global _scan_proc
+    env = read_env()
+    with _scan_lock:
+        if _scan_proc and _scan_proc.poll() is None:
+            return JSONResponse({"ok": False, "error": "Scan already running"}, status_code=409)
+
+        demo_mode   = env.get("DEMO_MODE", "false").lower() == "true"
+        client_name = env.get("CLIENT_NAME", "Client") or "Client"
+        target_host = env.get("TARGET_HOST", "")
+        ssh_user    = env.get("SSH_USER", "root") or "root"
+        ssh_key     = env.get("SSH_KEY", "")
+
+        cmd = [str(PYTHON_PATH), str(AGENT_PATH), "--client", client_name]
+        if demo_mode or not target_host:
+            cmd.append("--demo")
+        else:
+            cmd += ["--host", target_host, "--user", ssh_user]
+            if ssh_key:
+                cmd += ["--key", ssh_key]
+
+        env_vars = os.environ.copy()
+        env_vars["ANTHROPIC_API_KEY"] = env.get("ANTHROPIC_API_KEY", "")
+        env_vars["DEPLOY_MODE"]       = env.get("DEPLOY_MODE", "claude")
+
+        _scan_proc = subprocess.Popen(cmd, cwd=str(ROOT_DIR), env=env_vars)
+
+    return JSONResponse({"ok": True, "message": "Scan started"})
+
+
+@app.get("/api/run/status")
+def run_status():
+    global _scan_proc
+    if _scan_proc is None:
+        return JSONResponse({"running": False, "status": "idle"})
+    poll = _scan_proc.poll()
+    if poll is None:
+        return JSONResponse({"running": True, "status": "scanning"})
+    return JSONResponse({"running": False, "status": "complete" if poll == 0 else "error", "exit_code": poll})
 
 
 @app.get("/api/report/latest")

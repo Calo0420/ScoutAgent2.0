@@ -592,6 +592,13 @@ function startScan(){
   logEv(`Assessment started — ${nodeQueue.length} systems queued`,'info');
   const acOn=accels.filter(Boolean).length;
   logEv(`Assessment modules active: ${acOn}/6`,'info');
+
+  // Trigger real agent scan in background — reports/latest.json will be updated on completion
+  fetch('/api/run',{method:'POST'})
+    .then(r=>r.json())
+    .then(d=>{if(d.ok) logEv('Agent scan started — report will load when complete','ok');
+              else logEv(`Agent: ${d.error||'not started'}`,'med');})
+    .catch(()=>logEv('UI-only mode — no agent connected','med'));
 }
 
 function resetScan(){
@@ -1101,6 +1108,8 @@ async function loadSettings(){
       const d=await res.json();
       document.getElementById('sClientName').value=d.client_name||'';
       document.getElementById('sTargetHost').value=d.target_host||'';
+      document.getElementById('sSshUser').value=d.ssh_user||'root';
+      document.getElementById('sSshKey').value=d.ssh_key||'';
       document.getElementById('sDeployMode').value=d.deploy_mode||'claude';
       document.getElementById('sDemoMode').checked=d.demo_mode||false;
       document.getElementById('sApiKeyPlaceholder').textContent=d.api_key_set?'API key is set (leave blank to keep)':'Not set';
@@ -1115,6 +1124,8 @@ async function saveSettings(){
     password:settingsPassword,
     client_name:document.getElementById('sClientName').value,
     target_host:document.getElementById('sTargetHost').value,
+    ssh_user:document.getElementById('sSshUser').value,
+    ssh_key:document.getElementById('sSshKey').value,
     deploy_mode:document.getElementById('sDeployMode').value,
     demo_mode:document.getElementById('sDemoMode').checked,
   };
@@ -1190,6 +1201,14 @@ document.getElementById('settingsPassInput').addEventListener('keydown',e=>{if(e
       <div class="settings-field">
         <label class="settings-label">Target Host (Live Scan)</label>
         <input type="text" class="settings-input" id="sTargetHost" placeholder="e.g. 10.0.0.1 or server.local">
+      </div>
+      <div class="settings-field">
+        <label class="settings-label">SSH User</label>
+        <input type="text" class="settings-input" id="sSshUser" placeholder="e.g. root or admin">
+      </div>
+      <div class="settings-field">
+        <label class="settings-label">SSH Key Path (optional)</label>
+        <input type="text" class="settings-input" id="sSshKey" placeholder="e.g. /root/.ssh/id_ed25519">
       </div>
       <div class="settings-field">
         <label class="settings-label">Deploy Mode</label>
