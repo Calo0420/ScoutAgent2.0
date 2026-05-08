@@ -1107,6 +1107,10 @@ async function unlockSettings(){
     document.getElementById('settingsPassErr').textContent='Could not connect to server.';
   }
 }
+function updateDeployModeFields(mode){
+  document.getElementById('sAnthropicKeyField').style.display=(mode==='claude'||mode==='bedrock')?'':'none';
+  document.getElementById('sVeniceKeyField').style.display=(mode==='venice')?'':'none';
+}
 async function loadSettings(){
   try{
     const res=await fetch('/api/settings');
@@ -1119,6 +1123,9 @@ async function loadSettings(){
       document.getElementById('sDeployMode').value=d.deploy_mode||'claude';
       document.getElementById('sDemoMode').checked=d.demo_mode||false;
       document.getElementById('sApiKeyPlaceholder').textContent=d.api_key_set?'API key is set (leave blank to keep)':'Not set';
+      document.getElementById('sVeniceKeyPlaceholder').textContent=d.venice_api_key_set?'Venice key is set (leave blank to keep)':'Not set';
+      document.getElementById('sVeniceModel').value=d.venice_model||'llama-3.3-70b';
+      updateDeployModeFields(d.deploy_mode||'claude');
     }
   }catch(e){}
 }
@@ -1137,6 +1144,10 @@ async function saveSettings(){
   };
   const apiKey=document.getElementById('sApiKey').value.trim();
   if(apiKey) payload.api_key=apiKey;
+  const veniceKey=document.getElementById('sVeniceApiKey').value.trim();
+  if(veniceKey) payload.venice_api_key=veniceKey;
+  const veniceModel=document.getElementById('sVeniceModel').value.trim();
+  if(veniceModel) payload.venice_model=veniceModel;
   const newPass=document.getElementById('sNewPassword').value.trim();
   if(newPass){ payload.new_password=newPass; settingsPassword=newPass; }
   try{
@@ -1218,10 +1229,11 @@ document.getElementById('settingsPassInput').addEventListener('keydown',e=>{if(e
       </div>
       <div class="settings-field">
         <label class="settings-label">Deploy Mode</label>
-        <select class="settings-select" id="sDeployMode">
+        <select class="settings-select" id="sDeployMode" onchange="updateDeployModeFields(this.value)">
           <option value="claude">Claude — Anthropic API</option>
           <option value="bedrock">AWS Bedrock (stays in client AWS account)</option>
           <option value="ollama">Ollama — On-Prem / Air-Gap</option>
+          <option value="venice">Venice AI — Agent Zero (Open-Source Models)</option>
         </select>
       </div>
       <div class="settings-field">
@@ -1231,10 +1243,17 @@ document.getElementById('settingsPassInput').addEventListener('keydown',e=>{if(e
         </div>
       </div>
       <hr class="settings-divider">
-      <div class="settings-field">
+      <div class="settings-field" id="sAnthropicKeyField">
         <label class="settings-label">Anthropic API Key</label>
         <div style="font-size:10px;color:var(--muted);margin-bottom:5px" id="sApiKeyPlaceholder">Not set</div>
         <input type="password" class="settings-input" id="sApiKey" placeholder="sk-ant-... (leave blank to keep current)">
+      </div>
+      <div class="settings-field" id="sVeniceKeyField" style="display:none">
+        <label class="settings-label">Venice AI Key (Agent Zero)</label>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:5px" id="sVeniceKeyPlaceholder">Not set</div>
+        <input type="password" class="settings-input" id="sVeniceApiKey" placeholder="sk-a0-... (leave blank to keep current)">
+        <label class="settings-label" style="margin-top:8px">Venice Model</label>
+        <input type="text" class="settings-input" id="sVeniceModel" placeholder="e.g. llama-3.3-70b">
       </div>
       <hr class="settings-divider">
       <div class="settings-field">

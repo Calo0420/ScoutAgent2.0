@@ -191,7 +191,7 @@ For the roadmap:
 
 **Answer:**
 
-> *"That's exactly the right question to ask. ScoutAgent gives you three deployment options precisely because of this concern. The default mode sends findings to the Anthropic API over encrypted HTTPS — similar to how you'd use any secure cloud service. But if you have data residency requirements or a compliance program that doesn't allow data leaving your environment, we run it in AWS Bedrock mode, where everything stays within your own AWS account. Nothing leaves your cloud. And if you're in an air-gapped environment with no internet access at all, we have an on-premises mode using a local AI model. The assessment runs completely inside your four walls. You pick the mode that fits your security policy."*
+> *"That's exactly the right question to ask. ScoutAgent gives you four deployment options precisely because of this concern. The default mode sends findings to the Anthropic API over encrypted HTTPS — similar to how you'd use any secure cloud service. But if you have data residency requirements or a compliance program that doesn't allow data leaving your environment, we run it in AWS Bedrock mode, where everything stays within your own AWS account. Nothing leaves your cloud. And if you're in an air-gapped environment with no internet access at all, we have an on-premises mode using a local AI model. The assessment runs completely inside your four walls. We also offer a fourth option through Venice AI if you prefer open-source models without an Anthropic account. You pick the mode that fits your security policy."*
 
 ---
 
@@ -225,7 +225,7 @@ If they press for more technical comparison:
 
 **Answer:**
 
-> *"Yes, in most cases. ScoutAgent needs TCP 22 to reach your Linux servers — standard SSH — and HTTPS to reach vCenter if you have VMware. If you're running in an air-gapped environment with no outbound internet, we use the on-premises Ollama mode — no external connectivity required at all. If you have strict data residency requirements, we use your own AWS account through Bedrock. The tool is designed to meet you where your security policy already is, not to require exceptions to it."*
+> *"Yes, in most cases. ScoutAgent needs TCP 22 to reach your Linux servers — standard SSH — and HTTPS to reach vCenter if you have VMware. If you're running in an air-gapped environment with no outbound internet, we use the on-premises Ollama mode — no external connectivity required at all. If you have strict data residency requirements, we use your own AWS account through Bedrock. If you prefer open-source models without an Anthropic account, we can run through Venice AI. The tool is designed to meet you where your security policy already is, not to require exceptions to it."*
 
 If they ask about specific Linux distributions:
 
@@ -310,7 +310,7 @@ Say while it runs: *"It's scanning the environment... reading the security confi
 
 | Objection | Your One-Liner |
 |---|---|
-| "Is our data safe?" | "Three modes: cloud API, your AWS, or fully on-prem. You pick based on your policy." |
+| "Is our data safe?" | "Four modes: cloud API, your AWS, fully on-prem, or open-source via Venice. You pick based on your policy." |
 | "We already have a scanner" | "Scanners find CVEs. ScoutAgent produces a board-ready business document in 10 minutes." |
 | "What does implementation look like?" | "Read-only SSH account, 10 minutes, no changes to any system." |
 | "Can it run in our environment?" | "Yes — including air-gapped. We meet your security policy, not the other way around." |

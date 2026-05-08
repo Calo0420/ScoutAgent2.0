@@ -41,6 +41,7 @@ Controlled by the `DEPLOY_MODE` environment variable.
 | `claude` | Anthropic API | Yes — encrypted, Anthropic policy | Fast | Standard commercial clients |
 | `bedrock` | AWS Bedrock | No — stays in client AWS account | Fast | Regulated clients, HIPAA/SOC2 |
 | `ollama` | Local LLM server | Never | Slow (GPU required) | Air-gap, government, classified |
+| `venice` | Venice AI (Agent Zero) | Yes — Venice privacy policy | Fast | Open-source models, no Anthropic account needed |
 
 ### Claude (default)
 ```bash
@@ -64,6 +65,14 @@ OLLAMA_BASE_URL=http://gpu-server.internal:11434/v1
 OLLAMA_MODEL=llama3
 ```
 Requires a GPU server running Ollama with a compatible model loaded. Recommended minimum: NVIDIA A10 or equivalent, 24GB VRAM for Llama 3 8B at acceptable speed.
+
+### Venice AI / Agent Zero
+```bash
+DEPLOY_MODE=venice
+VENICE_API_KEY=sk-a0-...
+VENICE_MODEL=llama-3.3-70b
+```
+Uses the Venice AI platform via your Agent Zero API key. Venice exposes an OpenAI-compatible API at `https://api.venice.ai/api/v1`. Available models include Llama, Mistral, Qwen, DeepSeek, and others. No Anthropic account required. Data is processed under Venice's privacy policy.
 
 ---
 
@@ -243,6 +252,7 @@ ScoutAgent/
 
 ```
 anthropic>=0.25.0    # Claude API + Bedrock client
+openai>=1.0.0        # OpenAI-compat client (venice, ollama modes)
 paramiko>=3.4.0      # SSH transport
 pyVmomi>=8.0.2       # VMware vCenter API
 python-dotenv>=1.0.0 # Environment config

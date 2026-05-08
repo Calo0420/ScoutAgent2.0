@@ -114,7 +114,7 @@ Copy `.env.example` to `.env`:
 ANTHROPIC_API_KEY=sk-ant-...
 OPERATOR_PASSWORD=your-secure-password
 
-# Deployment mode: claude | bedrock | ollama
+# Deployment mode: claude | bedrock | ollama | venice
 DEPLOY_MODE=claude
 
 # Client info (appears in reports and dashboard)
@@ -123,6 +123,10 @@ TARGET_HOST=192.168.1.100
 
 # Set true to run with mock data (no real scan needed)
 DEMO_MODE=false
+
+# Venice AI via Agent Zero (required when DEPLOY_MODE=venice)
+VENICE_API_KEY=sk-a0-...
+VENICE_MODEL=llama-3.3-70b
 ```
 
 ### Deploy Modes
@@ -132,6 +136,7 @@ DEMO_MODE=false
 | `claude` | Direct Anthropic API | Default — fast, full features |
 | `bedrock` | AWS Bedrock (Claude) | Client requires data to stay in their AWS account |
 | `ollama` | Local LLM via Ollama | Air-gapped / fully on-prem environments |
+| `venice` | Venice AI via Agent Zero | Open-source models (Llama, Mistral, etc.) via Agent Zero key |
 
 ---
 

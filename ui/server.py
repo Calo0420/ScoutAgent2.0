@@ -77,13 +77,15 @@ def auth_settings(payload: dict = Body(...)):
 def get_settings():
     env = read_env()
     return JSONResponse({
-        "deploy_mode":  env.get("DEPLOY_MODE", "claude"),
-        "demo_mode":    env.get("DEMO_MODE", "false") == "true",
-        "client_name":  env.get("CLIENT_NAME", ""),
-        "target_host":  env.get("TARGET_HOST", ""),
-        "ssh_user":     env.get("SSH_USER", "root"),
-        "ssh_key":      env.get("SSH_KEY", ""),
-        "api_key_set":  bool(env.get("ANTHROPIC_API_KEY", "").strip()),
+        "deploy_mode":        env.get("DEPLOY_MODE", "claude"),
+        "demo_mode":          env.get("DEMO_MODE", "false") == "true",
+        "client_name":        env.get("CLIENT_NAME", ""),
+        "target_host":        env.get("TARGET_HOST", ""),
+        "ssh_user":           env.get("SSH_USER", "root"),
+        "ssh_key":            env.get("SSH_KEY", ""),
+        "api_key_set":        bool(env.get("ANTHROPIC_API_KEY", "").strip()),
+        "venice_api_key_set": bool(env.get("VENICE_API_KEY", "").strip()),
+        "venice_model":       env.get("VENICE_MODEL", "llama-3.3-70b"),
     })
 
 
@@ -100,8 +102,10 @@ def save_settings(payload: dict = Body(...)):
     if "target_host"  in payload: updates["TARGET_HOST"]  = payload["target_host"]
     if "ssh_user"     in payload: updates["SSH_USER"]     = payload["ssh_user"]
     if "ssh_key"      in payload: updates["SSH_KEY"]      = payload["ssh_key"]
-    if payload.get("api_key"):    updates["ANTHROPIC_API_KEY"] = payload["api_key"]
-    if payload.get("new_password"): updates["OPERATOR_PASSWORD"] = payload["new_password"]
+    if payload.get("api_key"):         updates["ANTHROPIC_API_KEY"] = payload["api_key"]
+    if payload.get("venice_api_key"):  updates["VENICE_API_KEY"]    = payload["venice_api_key"]
+    if payload.get("venice_model"):    updates["VENICE_MODEL"]       = payload["venice_model"]
+    if payload.get("new_password"):    updates["OPERATOR_PASSWORD"]  = payload["new_password"]
     write_env(updates)
     return JSONResponse({"ok": True})
 
@@ -131,6 +135,8 @@ def run_scan():
         env_vars = os.environ.copy()
         env_vars["ANTHROPIC_API_KEY"] = env.get("ANTHROPIC_API_KEY", "")
         env_vars["DEPLOY_MODE"]       = env.get("DEPLOY_MODE", "claude")
+        env_vars["VENICE_API_KEY"]    = env.get("VENICE_API_KEY", "")
+        env_vars["VENICE_MODEL"]      = env.get("VENICE_MODEL", "llama-3.3-70b")
 
         _scan_proc = subprocess.Popen(cmd, cwd=str(ROOT_DIR), env=env_vars)
 

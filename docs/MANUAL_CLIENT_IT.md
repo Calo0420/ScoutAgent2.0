@@ -21,7 +21,7 @@
 
 ## 1. What ScoutAgent Does
 
-ScoutAgent 2.0 is an AI-powered, read-only infrastructure assessment tool built by Everforth. It connects to your Linux servers via SSH, your VMware vCenter via the vSphere API, and your network via passive nmap scans. It collects configuration data, security posture metrics, and resource utilization — then passes all findings to an AI reasoning engine (Claude, AWS Bedrock, or a local Ollama model) to synthesize them into a structured executive report.
+ScoutAgent 2.0 is an AI-powered, read-only infrastructure assessment tool built by Everforth. It connects to your Linux servers via SSH, your VMware vCenter via the vSphere API, and your network via passive nmap scans. It collects configuration data, security posture metrics, and resource utilization — then passes all findings to an AI reasoning engine (Claude, AWS Bedrock, a local Ollama model, or Venice AI via Agent Zero) to synthesize them into a structured executive report.
 
 No changes are ever made to any system ScoutAgent touches. Every operation is strictly read-only: it runs shell commands via SSH, reads vCenter API responses over HTTPS, and performs host-discovery and port scans with nmap. The output is a single Markdown report covering six sections: Executive Summary, Server Inventory, Risk Map, Savings Estimate, License Cost Comparison, and Migration Roadmap. The entire assessment typically completes in 3 to 8 minutes depending on environment size and network latency.
 
@@ -44,7 +44,7 @@ No changes are ever made to any system ScoutAgent touches. Every operation is st
 - **SSH access** to target Linux hosts: TCP 22, key-based or password auth
 - **vCenter access** (if scanning VMware): HTTPS port 443 to vCenter server, read-only credentials
 - **Network scan access**: The host running ScoutAgent must be able to reach the target subnet for nmap discovery
-- **Outbound HTTPS** (port 443): Required for `DEPLOY_MODE=claude` and `DEPLOY_MODE=bedrock`. Not required for `DEPLOY_MODE=ollama`
+- **Outbound HTTPS** (port 443): Required for `DEPLOY_MODE=claude`, `DEPLOY_MODE=bedrock`, and `DEPLOY_MODE=venice`. Not required for `DEPLOY_MODE=ollama`
 
 ### Credentials Required
 
@@ -53,6 +53,7 @@ No changes are ever made to any system ScoutAgent touches. Every operation is st
 | ANTHROPIC_API_KEY | DEPLOY_MODE=claude | Valid Anthropic API key |
 | AWS credentials | DEPLOY_MODE=bedrock | IAM: `bedrock:InvokeModel` on Claude model |
 | Ollama endpoint | DEPLOY_MODE=ollama | HTTP reachable from scan host |
+| VENICE_API_KEY | DEPLOY_MODE=venice | Agent Zero API key (sk-a0-...) |
 | SSH username + key | Linux scans | Read-only user, no sudo required |
 | vCenter credentials | VMware scans | Read-only role on vCenter |
 
@@ -152,6 +153,7 @@ All configuration is done through the `.env` file. Copy `.env.example` to `.env`
 | `claude` | Anthropic API (default). Fast, requires internet access and an Anthropic API key. |
 | `bedrock` | AWS Bedrock. Data stays within the client AWS account. Requires AWS IAM credentials with Bedrock permissions. |
 | `ollama` | Local Ollama server. Fully air-gapped. No data leaves the facility. Requires a GPU server running Ollama. |
+| `venice` | Venice AI via Agent Zero. OpenAI-compatible cloud API running open-source models (Llama, Mistral, etc.). Requires an Agent Zero API key. No Anthropic account needed. |
 
 ```
 DEPLOY_MODE=claude
@@ -221,10 +223,34 @@ Recommended minimum: Llama 3 8B on a GPU with at least 24 GB VRAM (e.g., NVIDIA 
 
 ---
 
+#### `VENICE_API_KEY`
+
+**Required when `DEPLOY_MODE=venice`.** Your Agent Zero API key for the Venice AI platform.
+
+```
+VENICE_API_KEY=sk-a0-...
+```
+
+Obtain from your Agent Zero account at [agent-zero.ai](https://www.agent-zero.ai). Venice AI exposes an OpenAI-compatible endpoint and does not require an Anthropic account.
+
+---
+
+#### `VENICE_MODEL`
+
+**Optional when `DEPLOY_MODE=venice`.** The Venice model to use. Defaults to `llama-3.3-70b`.
+
+```
+VENICE_MODEL=llama-3.3-70b
+```
+
+Other available Venice models include Mistral, Qwen3, DeepSeek, and others. See Venice documentation for the current model list.
+
+---
+
 ### Complete `.env` Example
 
 ```bash
-# Deploy mode: claude | bedrock | ollama
+# Deploy mode: claude | bedrock | ollama | venice
 DEPLOY_MODE=claude
 
 # Set true for demos and testing — no real infrastructure needed
@@ -241,6 +267,10 @@ AWS_REGION=us-east-1
 # Ollama (required for ollama mode)
 OLLAMA_BASE_URL=http://gpu-server.internal:11434/v1
 OLLAMA_MODEL=llama3
+
+# Venice AI via Agent Zero (required for venice mode)
+VENICE_API_KEY=sk-a0-...
+VENICE_MODEL=llama-3.3-70b
 ```
 
 ---
@@ -409,7 +439,7 @@ The report always contains six sections in this order. Here is what each section
 
 ## 7. Deployment Modes
 
-ScoutAgent supports three AI backends, selected via the `DEPLOY_MODE` environment variable. The mode controls only how findings are processed by the AI — the scanning tools (SSH, vCenter, nmap) behave identically in all modes.
+ScoutAgent supports four AI backends, selected via the `DEPLOY_MODE` environment variable. The mode controls only how findings are processed by the AI — the scanning tools (SSH, vCenter, nmap) behave identically in all modes.
 
 ---
 
@@ -461,6 +491,26 @@ OLLAMA_MODEL=llama3
 ```
 
 > **Report quality note:** Open-source models available via Ollama produce adequate reports but will not match the synthesis quality of Claude via the API or Bedrock. For air-gapped deployments, Llama 3 70B (requires ~80 GB VRAM) produces significantly better output than the 8B variant.
+
+---
+
+### Venice AI / Agent Zero (`DEPLOY_MODE=venice`)
+
+**How it works:** Scan findings are sent to the Venice AI platform via your Agent Zero API key. Venice exposes an OpenAI-compatible API and runs a variety of open-source models (Llama, Mistral, Qwen, DeepSeek, and others).
+
+**Data handling:** Your infrastructure data is sent to Venice AI's infrastructure for processing. Venice AI's privacy and data handling policy applies. This mode does not require an Anthropic account.
+
+**When to use:** When you have an Agent Zero subscription and prefer to use open-source models, or when an Anthropic account is not available.
+
+**Requirements:** `VENICE_API_KEY` set (Agent Zero key). Outbound HTTPS on port 443 to `api.venice.ai`.
+
+```bash
+DEPLOY_MODE=venice
+VENICE_API_KEY=sk-a0-...
+VENICE_MODEL=llama-3.3-70b
+```
+
+> **Report quality note:** Open-source models via Venice produce good results but the synthesis quality may differ from Claude. Larger models (e.g., Llama 3 70B) produce better output than smaller variants.
 
 ---
 
@@ -517,11 +567,12 @@ If running via Docker, nmap is bundled in the image. This error when using Docke
 **Symptom:** Agent fails with `AuthenticationError`, `Invalid API key`, or `401 Unauthorized`
 
 **Checklist:**
-1. Confirm the API key in `.env` starts with `sk-ant-` (Anthropic) or that AWS credentials are valid
+1. Confirm the API key in `.env` starts with `sk-ant-` (Anthropic) or `sk-a0-` (Venice/Agent Zero), or that AWS credentials are valid
 2. Check for leading/trailing whitespace in the key value in `.env`
 3. For Anthropic: verify the key is active at [console.anthropic.com](https://console.anthropic.com)
 4. For Bedrock: verify the IAM user has `bedrock:InvokeModel` permission and that Claude is enabled in your Bedrock region
-5. Ensure `DEPLOY_MODE` matches the credentials provided (e.g., do not set `DEPLOY_MODE=bedrock` while only providing `ANTHROPIC_API_KEY`)
+5. For Venice: verify the Agent Zero key is active in your Agent Zero dashboard
+6. Ensure `DEPLOY_MODE` matches the credentials provided (e.g., do not set `DEPLOY_MODE=venice` while only providing `ANTHROPIC_API_KEY`)
 
 ### Scan Runs But Report Is Empty or Truncated
 
@@ -549,7 +600,7 @@ If running via Docker, nmap is bundled in the image. This error when using Docke
 A: No. Every operation is strictly read-only. ScoutAgent runs shell commands via SSH that only read data (no writes, no installs, no config changes), queries the vCenter API with read-only credentials, and performs passive nmap scans. Nothing is modified on any scanned system.
 
 **Q: What data does ScoutAgent collect and where does it go?**
-A: ScoutAgent collects system configuration data (OS version, patch level, open ports, CIS benchmark results, VM inventory). In `claude` mode this data is sent to Anthropic's API. In `bedrock` mode it stays in your AWS account. In `ollama` mode it never leaves your network. No credentials or private keys are ever collected — only the metadata about the configuration state of your servers.
+A: ScoutAgent collects system configuration data (OS version, patch level, open ports, CIS benchmark results, VM inventory). In `claude` mode this data is sent to Anthropic's API. In `bedrock` mode it stays in your AWS account. In `ollama` mode it never leaves your network. In `venice` mode it is sent to Venice AI's infrastructure via your Agent Zero key. No credentials or private keys are ever collected — only the metadata about the configuration state of your servers.
 
 **Q: How long does a full scan take?**
 A: A typical full scan (1–3 Linux hosts, one vCenter with 50 VMs, and a /24 network) takes 3–8 minutes. Network scan time scales with the number of live hosts discovered (capped at 20 hosts for the risky port check). Large vCenter environments (500+ VMs) may take slightly longer on the vSphere API queries.

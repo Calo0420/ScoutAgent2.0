@@ -39,17 +39,19 @@ else:
     from tools.ai_stack_scout import assess_ai_stack
 
 # ── Model config ──────────────────────────────────────────────────────────────
-# DEPLOY_MODE controls which backend Claude runs on:
+# DEPLOY_MODE controls which backend the agent runs on:
 #   "claude"  → direct Anthropic API  (fast, default, data touches Anthropic)
 #   "bedrock" → AWS Bedrock           (stays in client AWS account, compliance-friendly)
 #   "ollama"  → local Ollama server   (air-gap / fully on-prem, needs GPU)
+#   "venice"  → Venice AI via Agent Zero key (OpenAI-compat, open-source models)
 DEPLOY_MODE = os.getenv("DEPLOY_MODE", "claude").lower()
 
 # Model IDs per backend
 MODELS = {
     "claude":  "claude-opus-4-6",
-    "bedrock": "anthropic.claude-opus-4-5",         # Bedrock model ID format
-    "ollama":  os.getenv("OLLAMA_MODEL", "llama3"),  # configurable local model
+    "bedrock": "anthropic.claude-opus-4-5",                        # Bedrock model ID format
+    "ollama":  os.getenv("OLLAMA_MODEL", "llama3"),                # configurable local model
+    "venice":  os.getenv("VENICE_MODEL", "llama-3.3-70b"),        # Venice AI (Agent Zero)
 }
 
 
@@ -71,8 +73,130 @@ def get_client():
             )
         except ImportError:
             raise RuntimeError("DEPLOY_MODE=ollama requires: pip install openai")
+    elif DEPLOY_MODE == "venice":
+        # Venice AI via Agent Zero — OpenAI-compatible endpoint
+        try:
+            from openai import OpenAI
+            return OpenAI(
+                base_url="https://api.venice.ai/api/v1",
+                api_key=os.getenv("VENICE_API_KEY"),
+            )
+        except ImportError:
+            raise RuntimeError("DEPLOY_MODE=venice requires: pip install openai")
     else:
         return anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+def _is_openai_compat(client) -> bool:
+    """True when the client is an OpenAI-compatible backend (venice, ollama)."""
+    try:
+        from openai import OpenAI
+        return isinstance(client, OpenAI)
+    except ImportError:
+        return False
+
+
+def _to_openai_tools(tools: list) -> list:
+    """Convert Anthropic tool schema format → OpenAI function-calling format."""
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name":        t["name"],
+                "description": t["description"],
+                "parameters":  t["input_schema"],
+            },
+        }
+        for t in tools
+    ]
+
+
+def _run_openai_loop(client, model: str, system_prompt: str,
+                     user_request: str, client_name: str):
+    """
+    Agent loop for OpenAI-compatible backends (venice, ollama).
+    Mirrors run_scout() but uses chat.completions API + OpenAI tool format.
+    """
+    oai_tools    = _to_openai_tools(TOOLS)
+    messages     = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user",   "content": user_request},
+    ]
+    all_findings = {}
+    failed_tools = []
+
+    print(f"\n[Scout] Starting assessment for: {client_name}")
+    print(f"[Scout] {user_request}\n")
+
+    while True:
+        response = client.chat.completions.create(
+            model=model,
+            max_tokens=8096,
+            tools=oai_tools,
+            messages=messages,
+        )
+        choice = response.choices[0]
+        msg    = choice.message
+
+        if msg.content:
+            print(msg.content)
+
+        if choice.finish_reason == "stop":
+            if msg.content and len(msg.content) > 200:
+                return msg.content, all_findings
+            return "Assessment complete — no report generated.", all_findings
+
+        if choice.finish_reason != "tool_calls":
+            break
+
+        # Append assistant turn with tool_calls
+        messages.append({
+            "role":       "assistant",
+            "content":    msg.content or "",
+            "tool_calls": [
+                {
+                    "id":       tc.id,
+                    "type":     "function",
+                    "function": {
+                        "name":      tc.function.name,
+                        "arguments": tc.function.arguments,
+                    },
+                }
+                for tc in (msg.tool_calls or [])
+            ],
+        })
+
+        ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        for tc in (msg.tool_calls or []):
+            inputs     = json.loads(tc.function.arguments)
+            print(f"[Scout] ▶ {tc.function.name}({list(inputs.keys())})")
+            result_str  = dispatch_tool(tc.function.name, inputs)
+            result_json = json.loads(result_str)
+
+            if "error" in result_json:
+                failed_tools.append({"tool": tc.function.name, "error": result_json["error"]})
+            else:
+                all_findings[tc.function.name] = result_json
+                _write_latest(map_findings_to_ui(
+                    all_findings, client_name, ts,
+                    status="scanning",
+                    current_node=TOOL_TO_NODE.get(tc.function.name),
+                ))
+
+            messages.append({
+                "role":         "tool",
+                "tool_call_id": tc.id,
+                "content":      result_str,
+            })
+
+        if failed_tools:
+            messages.append({
+                "role":    "user",
+                "content": f"Note: the following tools failed: {json.dumps(failed_tools)}. Mention this in the report.",
+            })
+            failed_tools = []
+
+    return "Assessment complete.", all_findings
+
 
 # ── Tool definitions (what Claude sees and can call) ──────────────────────────
 TOOLS = [
@@ -325,6 +449,46 @@ def run_scout(user_request: str, client_name: str = "Client") -> str:
     model  = MODELS.get(DEPLOY_MODE, MODELS["claude"])
 
     print(f"[Scout] Mode: {DEPLOY_MODE.upper()} | Model: {model}{' | DEMO' if DEMO_MODE else ''}")
+
+    # OpenAI-compatible backends (venice, ollama) use a separate loop
+    if _is_openai_compat(claude):
+        system_prompt = f"""You are the AI Infrastructure Scout Agent, built by Everforth (an Apex Systems company).
+You are the most advanced infrastructure assessment agent available — designed to replace weeks of manual consulting work with a single automated run.
+Today's date: {datetime.now().strftime('%Y-%m-%d')}.
+Client: {client_name}
+
+## Your Role
+You are a senior infrastructure consultant with deep expertise in Linux, VMware, networking, AI/ML stacks, security hardening, and cost optimization. You think like an engineer but write like a CIO advisor. You find the things clients don't know they should be worried about.
+
+## Assessment Rules
+1. Run EVERY tool that applies to the credentials provided. Never skip a tool you have access to.
+2. SSH credentials given → always run ALL THREE: scan_linux_environment + check_cis_benchmarks + audit_automation_maturity + assess_ai_stack
+3. vCenter credentials given → always run scan_vmware_environment
+4. Subnet given → always run scan_network_health
+5. If multiple hosts are provided, scan each one individually
+6. Never assume a finding is minor — let the data speak and rate it objectively
+
+## Reasoning Approach
+- After each tool result, briefly analyze what you found before calling the next tool
+- Look for correlations across tools: a server with no firewall AND exposed MongoDB AND no auditd is a critical finding, not three separate medium findings
+- The savings estimate must use real numbers from the scan — never use placeholder values
+- Flag end-of-support OS versions as HIGH risk minimum — they are never LOW
+
+## Report Standards
+- Every finding must reference the specific host it came from
+- Every risk must have a likelihood score, impact score, and combined rating
+- Every dollar figure must have a source and confidence level
+- The roadmap must have real 30/60/90-day phases — not vague recommendations
+- Executive Summary must be readable by a CIO in under 5 minutes with no technical background
+- Each section ends with the applicable Everforth accelerator reference
+
+## What You Never Do
+- Never suggest making changes to client systems — assess only
+- Never include findings you are not confident about — mark uncertain items as "requires manual verification"
+- Never leave a report section empty — if data was not available, explain why
+- Never use jargon without defining it on first use
+- Never give a LOW risk rating to a server that has not been patched in over 60 days, has root SSH enabled, or has a database port exposed to the network"""
+        return _run_openai_loop(claude, model, system_prompt, user_request, client_name)
 
     system_prompt = f"""You are the AI Infrastructure Scout Agent, built by Everforth (an Apex Systems company).
 You are the most advanced infrastructure assessment agent available — designed to replace weeks of manual consulting work with a single automated run.
