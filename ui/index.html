@@ -299,7 +299,7 @@ canvas{display:block;position:relative;z-index:1}
     </div>
     <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
       <button class="run-btn" style="flex:1" onclick="document.getElementById('modal').style.display='none'">CLOSE REPORT</button>
-      <a id="btnDownloadReport" href="/api/report/latest" download class="run-btn" style="flex:1;text-align:center;text-decoration:none;display:none">&#11015; DOWNLOAD REPORT</a>
+      <button id="btnDownloadReport" onclick="downloadReport()" class="run-btn" style="flex:1;display:none">&#11015; DOWNLOAD REPORT</button>
     </div>
   </div>
 </div>
@@ -1184,6 +1184,21 @@ async function saveSettings(){
     msg.style.color='var(--crit)';
     msg.textContent='Could not connect to server.';
   }
+}
+async function downloadReport(){
+  try{
+    const res=await fetch('/api/report/latest');
+    if(!res.ok){alert('No report available yet — run a scan first.');return;}
+    const blob=await res.blob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download='scoutagent-report.pdf';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }catch(e){alert('Download failed: '+e.message);}
 }
 async function saveSSHKey(){
   const msg=document.getElementById('sshKeySaveMsg');
