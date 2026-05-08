@@ -10,6 +10,8 @@ import subprocess
 import threading
 from pathlib import Path
 
+import paramiko
+
 from fastapi import FastAPI, Body
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -131,11 +133,17 @@ def save_ssh_key(payload: dict = Body(...)):
         return JSONResponse({"ok": False, "error": "No key content provided"}, status_code=400)
     if not key_content.startswith("-----BEGIN"):
         return JSONResponse({"ok": False, "error": "Does not look like a valid private key"}, status_code=400)
+    # Normalize — browsers often collapse line breaks in textareas.
+    # Re-wrap the base64 body at 70 chars so OpenSSH accepts it.
+    lines   = key_content.replace("\r", "").split("\n")
+    header  = next((l for l in lines if l.startswith("-----BEGIN")), "")
+    footer  = next((l for l in lines if l.startswith("-----END")), "")
+    body    = "".join(l for l in lines if not l.startswith("-----"))
+    wrapped = "\n".join(body[i:i+70] for i in range(0, len(body), 70))
+    key_content = f"{header}\n{wrapped}\n{footer}\n"
     ssh_dir  = Path("/root/.ssh")
     ssh_dir.mkdir(mode=0o700, exist_ok=True)
     key_path = ssh_dir / key_name
-    if not key_content.endswith("\n"):
-        key_content += "\n"
     key_path.write_text(key_content)
     key_path.chmod(0o600)
     write_env({"SSH_KEY": str(key_path)})
@@ -145,7 +153,6 @@ def save_ssh_key(payload: dict = Body(...)):
 @app.post("/api/test-connection")
 def test_connection(payload: dict = Body(...)):
     """Tries an SSH connection with current settings and returns success/failure."""
-    import paramiko
     host     = payload.get("host", "").strip()
     user     = payload.get("user", "root").strip()
     key_path = payload.get("key_path", "").strip()
