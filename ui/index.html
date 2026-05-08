@@ -808,7 +808,18 @@ function finalizeScan(){
   // Show download button only when live scan data is available
   const dlBtn=document.getElementById('btnDownloadReport');
   if(dlBtn) dlBtn.style.display=Object.keys(liveDetails).length>0?'block':'none';
-  setTimeout(()=>document.getElementById('modal').style.display='flex',600);
+
+  // Only open the modal once the real server scan is complete.
+  // If still scanning, set a flag — pollLatest() will open it when done.
+  fetch('/api/run/status').then(r=>r.json()).then(s=>{
+    if(!s.running){
+      setTimeout(()=>document.getElementById('modal').style.display='flex',600);
+    } else {
+      window._waitingForScanModal = true;
+    }
+  }).catch(()=>{
+    setTimeout(()=>document.getElementById('modal').style.display='flex',600);
+  });
 }
 
 function logEv(msg,type='info'){
@@ -970,6 +981,12 @@ function applyLiveResults(data) {
   if (data.status === 'complete' && Object.keys(liveDetails).length > 0) {
     const dlBtn = document.getElementById('btnDownloadReport');
     if (dlBtn) dlBtn.style.display = 'block';
+  }
+
+  // If the UI animation finished while the scan was still running, open the modal now
+  if (data.status === 'complete' && window._waitingForScanModal) {
+    window._waitingForScanModal = false;
+    setTimeout(()=>document.getElementById('modal').style.display='flex', 800);
   }
 }
 
