@@ -83,6 +83,12 @@ def get_settings():
         "target_host":        env.get("TARGET_HOST", ""),
         "ssh_user":           env.get("SSH_USER", "root"),
         "ssh_key":            env.get("SSH_KEY", ""),
+        "ssh_port":           int(env.get("SSH_PORT", "22") or "22"),
+        "ssh_password_set":   bool(env.get("SSH_PASSWORD", "").strip()),
+        "subnet":             env.get("SUBNET", ""),
+        "vcenter_host":       env.get("VCENTER_HOST", ""),
+        "vcenter_user":       env.get("VCENTER_USER", ""),
+        "include_vmware":     bool(env.get("VCENTER_HOST", "").strip()),
         "api_key_set":        bool(env.get("ANTHROPIC_API_KEY", "").strip()),
         "venice_api_key_set": bool(env.get("VENICE_API_KEY", "").strip()),
         "venice_model":       env.get("VENICE_MODEL", "llama-3.3-70b"),
@@ -102,12 +108,66 @@ def save_settings(payload: dict = Body(...)):
     if "target_host"  in payload: updates["TARGET_HOST"]  = payload["target_host"]
     if "ssh_user"     in payload: updates["SSH_USER"]     = payload["ssh_user"]
     if "ssh_key"      in payload: updates["SSH_KEY"]      = payload["ssh_key"]
+    if "ssh_port"      in payload: updates["SSH_PORT"]      = str(payload["ssh_port"])
+    if "ssh_password"  in payload: updates["SSH_PASSWORD"]  = payload["ssh_password"]
+    if "subnet"        in payload: updates["SUBNET"]        = payload["subnet"]
+    if "vcenter_host"  in payload: updates["VCENTER_HOST"]  = payload["vcenter_host"]
+    if "vcenter_user"  in payload: updates["VCENTER_USER"]  = payload["vcenter_user"]
+    if payload.get("vcenter_pass"):    updates["VCENTER_PASS"]      = payload["vcenter_pass"]
     if payload.get("api_key"):         updates["ANTHROPIC_API_KEY"] = payload["api_key"]
     if payload.get("venice_api_key"):  updates["VENICE_API_KEY"]    = payload["venice_api_key"]
     if payload.get("venice_model"):    updates["VENICE_MODEL"]       = payload["venice_model"]
     if payload.get("new_password"):    updates["OPERATOR_PASSWORD"]  = payload["new_password"]
     write_env(updates)
     return JSONResponse({"ok": True})
+
+
+@app.post("/api/settings/ssh-key")
+def save_ssh_key(payload: dict = Body(...)):
+    """Accepts pasted private key content, writes it to /root/.ssh/ with correct permissions."""
+    key_content = payload.get("key_content", "").strip()
+    key_name    = payload.get("key_name", "scout_client_key").strip().replace("/", "_").replace(" ", "_")
+    if not key_content:
+        return JSONResponse({"ok": False, "error": "No key content provided"}, status_code=400)
+    if not key_content.startswith("-----BEGIN"):
+        return JSONResponse({"ok": False, "error": "Does not look like a valid private key"}, status_code=400)
+    ssh_dir  = Path("/root/.ssh")
+    ssh_dir.mkdir(mode=0o700, exist_ok=True)
+    key_path = ssh_dir / key_name
+    if not key_content.endswith("\n"):
+        key_content += "\n"
+    key_path.write_text(key_content)
+    key_path.chmod(0o600)
+    write_env({"SSH_KEY": str(key_path)})
+    return JSONResponse({"ok": True, "path": str(key_path)})
+
+
+@app.post("/api/test-connection")
+def test_connection(payload: dict = Body(...)):
+    """Tries an SSH connection with current settings and returns success/failure."""
+    import paramiko
+    host     = payload.get("host", "").strip()
+    user     = payload.get("user", "root").strip()
+    key_path = payload.get("key_path", "").strip()
+    password = payload.get("password", "").strip()
+    port     = int(payload.get("port", 22) or 22)
+    if not host:
+        return JSONResponse({"ok": False, "error": "No target host configured"})
+    try:
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        kwargs = {"hostname": host, "username": user, "port": port, "timeout": 10}
+        if key_path:
+            kwargs["key_filename"] = key_path
+        elif password:
+            kwargs["password"] = password
+        client.connect(**kwargs)
+        _, stdout, _ = client.exec_command("uname -srm && hostname")
+        result = stdout.read().decode().strip()
+        client.close()
+        return JSONResponse({"ok": True, "message": result or "Connected successfully"})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)})
 
 
 @app.post("/api/run")
@@ -118,19 +178,33 @@ def run_scan():
         if _scan_proc and _scan_proc.poll() is None:
             return JSONResponse({"ok": False, "error": "Scan already running"}, status_code=409)
 
-        demo_mode   = env.get("DEMO_MODE", "false").lower() == "true"
-        client_name = env.get("CLIENT_NAME", "Client") or "Client"
-        target_host = env.get("TARGET_HOST", "")
-        ssh_user    = env.get("SSH_USER", "root") or "root"
-        ssh_key     = env.get("SSH_KEY", "")
+        demo_mode    = env.get("DEMO_MODE", "false").lower() == "true"
+        client_name  = env.get("CLIENT_NAME", "Client") or "Client"
+        target_host  = env.get("TARGET_HOST", "")
+        ssh_user     = env.get("SSH_USER", "root") or "root"
+        ssh_key      = env.get("SSH_KEY", "")
+        ssh_port     = env.get("SSH_PORT", "22") or "22"
+        ssh_password = env.get("SSH_PASSWORD", "")
+        subnet       = env.get("SUBNET", "")
+        vcenter_host = env.get("VCENTER_HOST", "")
+        vcenter_user = env.get("VCENTER_USER", "")
+        vcenter_pass = env.get("VCENTER_PASS", "")
 
         cmd = [str(PYTHON_PATH), str(AGENT_PATH), "--client", client_name]
         if demo_mode or not target_host:
             cmd.append("--demo")
         else:
-            cmd += ["--host", target_host, "--user", ssh_user]
+            cmd += ["--host", target_host, "--user", ssh_user, "--port", ssh_port]
             if ssh_key:
                 cmd += ["--key", ssh_key]
+            elif ssh_password:
+                cmd += ["--password", ssh_password]
+            if subnet:
+                cmd += ["--subnet", subnet]
+            if vcenter_host and vcenter_user:
+                cmd += ["--vcenter", vcenter_host, "--vc-user", vcenter_user]
+                if vcenter_pass:
+                    cmd += ["--vc-pass", vcenter_pass]
 
         env_vars = os.environ.copy()
         env_vars["ANTHROPIC_API_KEY"] = env.get("ANTHROPIC_API_KEY", "")

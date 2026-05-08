@@ -12,7 +12,7 @@ def _ssh_run(client, cmd):
     return stdout.read().decode().strip()
 
 
-def scan_linux_environment(host: str, username: str, key_path: str = None, password: str = None) -> dict:
+def scan_linux_environment(host: str, username: str, key_path: str = None, password: str = None, port: int = 22) -> dict:
     """
     A1 — Linux Fast Track: rapid environment snapshot.
     Returns OS info, CPU/RAM/disk, uptime, users, open ports, installed packages count.
@@ -20,7 +20,7 @@ def scan_linux_environment(host: str, username: str, key_path: str = None, passw
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    connect_kwargs = {"hostname": host, "username": username, "timeout": 10}
+    connect_kwargs = {"hostname": host, "username": username, "port": port, "timeout": 10}
     if key_path:
         connect_kwargs["key_filename"] = key_path
     else:
@@ -51,7 +51,7 @@ def scan_linux_environment(host: str, username: str, key_path: str = None, passw
     return findings
 
 
-def check_cis_benchmarks(host: str, username: str, key_path: str = None, password: str = None) -> dict:
+def check_cis_benchmarks(host: str, username: str, key_path: str = None, password: str = None, port: int = 22) -> dict:
     """
     A2 — Linux Hardening Sprint: CIS Benchmark Level 1 spot checks.
     Returns pass/fail per control with remediation hint.
@@ -59,7 +59,7 @@ def check_cis_benchmarks(host: str, username: str, key_path: str = None, passwor
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    connect_kwargs = {"hostname": host, "username": username, "timeout": 10}
+    connect_kwargs = {"hostname": host, "username": username, "port": port, "timeout": 10}
     if key_path:
         connect_kwargs["key_filename"] = key_path
     else:
@@ -97,14 +97,14 @@ def check_cis_benchmarks(host: str, username: str, key_path: str = None, passwor
     }
 
 
-def audit_automation_maturity(host: str, username: str, key_path: str = None, password: str = None) -> dict:
+def audit_automation_maturity(host: str, username: str, key_path: str = None, password: str = None, port: int = 22) -> dict:
     """
     A8 — Automation & IaC: checks for automation tooling presence and config drift indicators.
     """
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    connect_kwargs = {"hostname": host, "username": username, "timeout": 10}
+    connect_kwargs = {"hostname": host, "username": username, "port": port, "timeout": 10}
     if key_path:
         connect_kwargs["key_filename"] = key_path
     else:

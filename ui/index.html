@@ -126,6 +126,7 @@ canvas{display:block;position:relative;z-index:1}
 .settings-toggle-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0}
 .settings-divider{border:none;border-top:1px solid var(--border);margin:18px 0}
 .settings-msg{font-size:11px;margin-top:10px;text-align:center;font-family:'Share Tech Mono',monospace;min-height:16px}
+.settings-section-hdr{font-size:9px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;font-weight:700;margin:18px 0 10px;padding-bottom:4px;border-bottom:1px solid var(--border)}
 /* Header icon buttons */
 .hdr-icon{background:transparent;border:1px solid var(--border);color:var(--muted);padding:2px 7px;border-radius:2px;cursor:pointer;font-size:11px;transition:all .2s;font-family:'Share Tech Mono',monospace}
 .hdr-icon:hover{border-color:var(--accent);color:var(--accent)}
@@ -1119,7 +1120,14 @@ async function loadSettings(){
       document.getElementById('sClientName').value=d.client_name||'';
       document.getElementById('sTargetHost').value=d.target_host||'';
       document.getElementById('sSshUser').value=d.ssh_user||'root';
-      document.getElementById('sSshKey').value=d.ssh_key||'';
+      document.getElementById('sSshPort').value=d.ssh_port||22;
+      document.getElementById('sSshKeyStatus').textContent=d.ssh_key?'Key saved at: '+d.ssh_key:'No key saved';
+      document.getElementById('sSubnet').value=d.subnet||'';
+      document.getElementById('sVcenterHost').value=d.vcenter_host||'';
+      document.getElementById('sVcenterUser').value=d.vcenter_user||'';
+      const vmw=d.include_vmware||false;
+      document.getElementById('sIncludeVmware').checked=vmw;
+      document.getElementById('sVmwareFields').style.display=vmw?'block':'none';
       document.getElementById('sDeployMode').value=d.deploy_mode||'claude';
       document.getElementById('sDemoMode').checked=d.demo_mode||false;
       document.getElementById('sApiKeyPlaceholder').textContent=d.api_key_set?'API key is set (leave blank to keep)':'Not set';
@@ -1134,14 +1142,21 @@ async function saveSettings(){
   msg.style.color='var(--muted)';
   msg.textContent='Saving...';
   const payload={
-    password:settingsPassword,
-    client_name:document.getElementById('sClientName').value,
-    target_host:document.getElementById('sTargetHost').value,
-    ssh_user:document.getElementById('sSshUser').value,
-    ssh_key:document.getElementById('sSshKey').value,
-    deploy_mode:document.getElementById('sDeployMode').value,
-    demo_mode:document.getElementById('sDemoMode').checked,
+    password:    settingsPassword,
+    client_name: document.getElementById('sClientName').value,
+    target_host: document.getElementById('sTargetHost').value,
+    ssh_user:    document.getElementById('sSshUser').value,
+    ssh_port:    parseInt(document.getElementById('sSshPort').value)||22,
+    subnet:      document.getElementById('sSubnet').value,
+    vcenter_host:document.getElementById('sVcenterHost').value,
+    vcenter_user:document.getElementById('sVcenterUser').value,
+    deploy_mode: document.getElementById('sDeployMode').value,
+    demo_mode:   document.getElementById('sDemoMode').checked,
   };
+  const sshPass=document.getElementById('sSshPassword').value.trim();
+  if(sshPass) payload.ssh_password=sshPass;
+  const vcPass=document.getElementById('sVcenterPass').value.trim();
+  if(vcPass) payload.vcenter_pass=vcPass;
   const apiKey=document.getElementById('sApiKey').value.trim();
   if(apiKey) payload.api_key=apiKey;
   const veniceKey=document.getElementById('sVeniceApiKey').value.trim();
@@ -1155,9 +1170,11 @@ async function saveSettings(){
     const d=await res.json();
     if(d.ok){
       msg.style.color='var(--safe)';
-      msg.textContent='Settings saved successfully.';
+      msg.textContent='Settings saved.';
       document.getElementById('sApiKey').value='';
       document.getElementById('sNewPassword').value='';
+      document.getElementById('sSshPassword').value='';
+      document.getElementById('sVcenterPass').value='';
       loadSettings();
     }else{
       msg.style.color='var(--crit)';
@@ -1167,6 +1184,47 @@ async function saveSettings(){
     msg.style.color='var(--crit)';
     msg.textContent='Could not connect to server.';
   }
+}
+async function saveSSHKey(){
+  const msg=document.getElementById('sshKeySaveMsg');
+  const content=document.getElementById('sSshKeyContent').value.trim();
+  const name=document.getElementById('sSshKeyName').value.trim()||'scout_client_key';
+  if(!content){msg.style.color='var(--crit)';msg.textContent='Paste a private key first.';return;}
+  msg.style.color='var(--muted)';msg.textContent='Saving key...';
+  try{
+    const res=await fetch('/api/settings/ssh-key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key_content:content,key_name:name})});
+    const d=await res.json();
+    if(d.ok){
+      msg.style.color='var(--safe)';
+      msg.textContent='Key saved at '+d.path;
+      document.getElementById('sSshKeyContent').value='';
+      document.getElementById('sSshKeyStatus').textContent='Key saved at: '+d.path;
+    }else{
+      msg.style.color='var(--crit)';
+      msg.textContent=d.error||'Failed to save key.';
+    }
+  }catch(e){msg.style.color='var(--crit)';msg.textContent='Could not connect to server.';}
+}
+async function testConnection(){
+  const el=document.getElementById('testConnResult');
+  el.style.color='var(--muted)';el.textContent='Testing connection...';
+  const host=document.getElementById('sTargetHost').value.trim();
+  const user=document.getElementById('sSshUser').value.trim()||'root';
+  const port=parseInt(document.getElementById('sSshPort').value)||22;
+  const keyStatus=document.getElementById('sSshKeyStatus').textContent;
+  const keyPath=keyStatus.startsWith('Key saved at: ')?keyStatus.replace('Key saved at: ',''):'';
+  const password=document.getElementById('sSshPassword').value.trim();
+  try{
+    const res=await fetch('/api/test-connection',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({host,user,port,key_path:keyPath,password})});
+    const d=await res.json();
+    if(d.ok){
+      el.style.color='var(--safe)';
+      el.textContent='✓ Connected — '+d.message;
+    }else{
+      el.style.color='var(--crit)';
+      el.textContent='✗ Failed — '+d.error;
+    }
+  }catch(e){el.style.color='var(--crit)';el.textContent='✗ Could not reach server.';}
 }
 document.getElementById('settingsPassInput').addEventListener('keydown',e=>{if(e.key==='Enter')unlockSettings()});
 </script>
@@ -1211,22 +1269,77 @@ document.getElementById('settingsPassInput').addEventListener('keydown',e=>{if(e
 
     <!-- Settings form -->
     <div id="settingsForm" style="display:none">
+
+      <!-- CLIENT & TARGET -->
+      <div class="settings-section-hdr">Client &amp; Target Server</div>
       <div class="settings-field">
         <label class="settings-label">Client Name</label>
         <input type="text" class="settings-input" id="sClientName" placeholder="e.g. Everforth Technologies">
       </div>
-      <div class="settings-field">
-        <label class="settings-label">Target Host (Live Scan)</label>
-        <input type="text" class="settings-input" id="sTargetHost" placeholder="e.g. 10.0.0.1 or server.local">
+      <div style="display:flex;gap:10px">
+        <div class="settings-field" style="flex:2;margin-bottom:0">
+          <label class="settings-label">Target Host</label>
+          <input type="text" class="settings-input" id="sTargetHost" placeholder="e.g. 10.0.0.5 or server.local">
+        </div>
+        <div class="settings-field" style="flex:1;margin-bottom:0">
+          <label class="settings-label">SSH Port</label>
+          <input type="number" class="settings-input" id="sSshPort" value="22" placeholder="22">
+        </div>
       </div>
-      <div class="settings-field">
+      <div class="settings-field" style="margin-top:14px">
         <label class="settings-label">SSH User</label>
         <input type="text" class="settings-input" id="sSshUser" placeholder="e.g. root or admin">
       </div>
+
+      <!-- SSH AUTH -->
+      <div class="settings-section-hdr">SSH Authentication</div>
       <div class="settings-field">
-        <label class="settings-label">SSH Key Path (optional)</label>
-        <input type="text" class="settings-input" id="sSshKey" placeholder="e.g. /root/.ssh/id_ed25519">
+        <label class="settings-label">Current SSH Key</label>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:8px;font-family:'Share Tech Mono',monospace" id="sSshKeyStatus">No key saved</div>
+        <label class="settings-label">Paste Private Key</label>
+        <textarea class="settings-input" id="sSshKeyContent" rows="5" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...paste your full private key here...&#10;-----END OPENSSH PRIVATE KEY-----" style="font-family:'Share Tech Mono',monospace;font-size:10px;resize:vertical;line-height:1.4"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:stretch">
+          <input type="text" class="settings-input" id="sSshKeyName" placeholder="Key filename (e.g. client_key)" style="flex:1;margin:0">
+          <button class="run-btn" style="padding:0 14px;font-size:11px;white-space:nowrap;margin:0" onclick="saveSSHKey()">SAVE KEY</button>
+        </div>
+        <div id="sshKeySaveMsg" style="font-size:11px;min-height:16px;margin-top:6px;font-family:'Share Tech Mono',monospace"></div>
       </div>
+      <div class="settings-field">
+        <label class="settings-label">SSH Password <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(alternative if no key)</span></label>
+        <input type="password" class="settings-input" id="sSshPassword" placeholder="Leave blank if using key auth">
+      </div>
+      <button class="run-btn" style="width:100%;background:var(--panel);border:1px solid var(--border);color:var(--text);margin-bottom:6px" onclick="testConnection()">&#128299; TEST CONNECTION</button>
+      <div id="testConnResult" style="font-size:11px;min-height:18px;margin-bottom:10px;text-align:center;font-family:'Share Tech Mono',monospace"></div>
+
+      <!-- NETWORK SCAN -->
+      <div class="settings-section-hdr">Network Scan <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></div>
+      <div class="settings-field">
+        <label class="settings-label">Target Subnet</label>
+        <input type="text" class="settings-input" id="sSubnet" placeholder="e.g. 192.168.1.0/24">
+      </div>
+
+      <!-- VMWARE -->
+      <div class="settings-section-hdr" style="display:flex;align-items:center;justify-content:space-between">
+        <span>VMware vCenter <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></span>
+        <label class="toggle" style="margin:0"><input type="checkbox" id="sIncludeVmware" onchange="document.getElementById('sVmwareFields').style.display=this.checked?'block':'none'"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+      </div>
+      <div id="sVmwareFields" style="display:none">
+        <div class="settings-field">
+          <label class="settings-label">vCenter Host</label>
+          <input type="text" class="settings-input" id="sVcenterHost" placeholder="e.g. vc.client.local or 10.0.0.10">
+        </div>
+        <div class="settings-field">
+          <label class="settings-label">vCenter Username</label>
+          <input type="text" class="settings-input" id="sVcenterUser" placeholder="e.g. administrator@vsphere.local">
+        </div>
+        <div class="settings-field">
+          <label class="settings-label">vCenter Password</label>
+          <input type="password" class="settings-input" id="sVcenterPass" placeholder="vCenter password">
+        </div>
+      </div>
+
+      <!-- AI BACKEND -->
+      <div class="settings-section-hdr">AI Backend</div>
       <div class="settings-field">
         <label class="settings-label">Deploy Mode</label>
         <select class="settings-select" id="sDeployMode" onchange="updateDeployModeFields(this.value)">
@@ -1242,7 +1355,9 @@ document.getElementById('settingsPassInput').addEventListener('keydown',e=>{if(e
           <label class="toggle"><input type="checkbox" id="sDemoMode"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
         </div>
       </div>
-      <hr class="settings-divider">
+
+      <!-- API KEYS -->
+      <div class="settings-section-hdr">API Keys</div>
       <div class="settings-field" id="sAnthropicKeyField">
         <label class="settings-label">Anthropic API Key</label>
         <div style="font-size:10px;color:var(--muted);margin-bottom:5px" id="sApiKeyPlaceholder">Not set</div>
@@ -1255,11 +1370,14 @@ document.getElementById('settingsPassInput').addEventListener('keydown',e=>{if(e
         <label class="settings-label" style="margin-top:8px">Venice Model</label>
         <input type="text" class="settings-input" id="sVeniceModel" placeholder="e.g. llama-3.3-70b">
       </div>
-      <hr class="settings-divider">
+
+      <!-- SECURITY -->
+      <div class="settings-section-hdr">Security</div>
       <div class="settings-field">
         <label class="settings-label">Change Operator Password</label>
         <input type="password" class="settings-input" id="sNewPassword" placeholder="New password (leave blank to keep current)">
       </div>
+
       <button class="run-btn" onclick="saveSettings()">SAVE SETTINGS</button>
       <div class="settings-msg" id="settingsSaveMsg"></div>
     </div>

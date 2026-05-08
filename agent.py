@@ -210,6 +210,7 @@ TOOLS = [
                 "username": {"type": "string"},
                 "key_path": {"type": "string", "description": "Path to SSH private key (optional)"},
                 "password": {"type": "string", "description": "SSH password (optional, prefer key)"},
+                "port":     {"type": "integer", "description": "SSH port (default 22)"},
             },
             "required": ["host", "username"],
         },
@@ -224,6 +225,7 @@ TOOLS = [
                 "username": {"type": "string"},
                 "key_path": {"type": "string"},
                 "password": {"type": "string"},
+                "port":     {"type": "integer", "description": "SSH port (default 22)"},
             },
             "required": ["host", "username"],
         },
@@ -238,6 +240,7 @@ TOOLS = [
                 "username": {"type": "string"},
                 "key_path": {"type": "string"},
                 "password": {"type": "string"},
+                "port":     {"type": "integer", "description": "SSH port (default 22)"},
             },
             "required": ["host", "username"],
         },
@@ -265,6 +268,7 @@ TOOLS = [
                 "username": {"type": "string"},
                 "key_path": {"type": "string"},
                 "password": {"type": "string"},
+                "port":     {"type": "integer", "description": "SSH port (default 22)"},
             },
             "required": ["host", "username"],
         },
@@ -626,7 +630,8 @@ if __name__ == "__main__":
     parser.add_argument("--host",     help="Linux host IP/hostname")
     parser.add_argument("--user",     help="SSH username")
     parser.add_argument("--key",      help="SSH private key path")
-    parser.add_argument("--password", help="SSH password")
+    parser.add_argument("--password", help="SSH password (fallback if no key)")
+    parser.add_argument("--port",     type=int, default=22, help="SSH port (default 22)")
     parser.add_argument("--vcenter",  help="vCenter hostname")
     parser.add_argument("--vc-user",  help="vCenter username")
     parser.add_argument("--vc-pass",  help="vCenter password")
@@ -639,10 +644,10 @@ if __name__ == "__main__":
 
     parts = []
     if args.host:
-        creds = f"SSH user={args.user}"
-        if args.key:      creds += f" key={args.key}"
+        creds = f"SSH user={args.user} port={args.port}"
+        if args.key:        creds += f" key={args.key}"
         elif args.password: creds += f" password={args.password}"
-        parts.append(f"Scan Linux host {args.host} ({creds}). Run linux assessment, CIS benchmarks, and automation audit.")
+        parts.append(f"Scan Linux host {args.host} ({creds}). Run linux assessment, CIS benchmarks, automation audit, and AI stack assessment.")
     if args.vcenter:
         parts.append(f"Scan VMware vCenter at {args.vcenter} user={args.vc_user} password={args.vc_pass}.")
     if args.subnet:
