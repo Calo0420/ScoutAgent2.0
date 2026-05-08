@@ -36,12 +36,14 @@ ScoutAgent 2.0 is a Claude-powered infrastructure assessment tool that connects 
 
 The live web dashboard runs on port `7070` and provides:
 
-- **Real-time topology canvas** — animated network map showing findings as they are detected
+- **Real-time topology canvas** — animated network map with pulsing data-stream beams, accelerator info cards, and per-check progress overlay while scanning
 - **Severity-weighted health score** — 0–100 with letter grade (A through F)
 - **Presenter mode** — fullscreen with floating control bar for client meetings
 - **Auto-demo sequence** — guided walkthrough from worst-case to best-practice scenarios
-- **Settings panel** — operator configuration without touching code
-- **PDF report download** — one-click branded report delivery after scan
+- **Self-service settings panel** — configure target host, SSH credentials, subnet, vCenter, API keys, and deploy mode entirely from the browser — no terminal required
+- **SSH key paste** — paste a private key directly into the UI; server normalises and saves it with correct permissions
+- **Test connection** — verify SSH connectivity to the target before scanning
+- **PDF report download** — one-click branded report delivery; button only appears once the real scan is confirmed complete
 
 ---
 
@@ -75,6 +77,16 @@ http://<server-ip>:7070
 
 ## Running a Scan
 
+### From the Dashboard (recommended)
+
+1. Open `http://<server-ip>:7070`
+2. Click the **⚙ gear icon** → enter operator password → configure target
+3. Paste SSH private key or enter key file path → click **TEST CONNECTION**
+4. Click **▶ RUN SCAN** — the canvas animates while the agent works
+5. When scan completes, the results modal opens and **↓ DOWNLOAD REPORT** appears
+
+### From the Terminal
+
 ```bash
 cd /opt/ScoutAgent2.0
 export $(grep -v '^#' .env | xargs)
@@ -84,8 +96,7 @@ export $(grep -v '^#' .env | xargs)
   --client "Client Name" \
   --host localhost \
   --user root \
-  --key /root/.ssh/scout_local_key \
-  --subnet 192.168.1.0/24
+  --key /root/.ssh/scout_local_key
 
 # Remote server scan
 .venv/bin/python agent.py \
@@ -93,6 +104,7 @@ export $(grep -v '^#' .env | xargs)
   --host 10.0.0.10 \
   --user admin \
   --key ~/.ssh/client_key \
+  --port 22 \
   --subnet 10.0.0.0/24
 
 # With VMware vCenter
@@ -218,9 +230,10 @@ Download as a branded PDF directly from the dashboard after scan completion.
 
 | Key | Action |
 |---|---|
+| `SPACE` | Run / Reset scan |
 | `F` | Toggle fullscreen |
 | `P` | Toggle presenter bar |
-| `1` – `5` | Load preset scenarios |
+| `1` – `6` | Toggle individual assessment modules |
 | `N` | Worst Case scenario |
 | `C` | Best Practice scenario |
 | `ESC` | Close modal / end demo |

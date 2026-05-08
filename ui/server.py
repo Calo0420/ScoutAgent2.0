@@ -250,7 +250,10 @@ def download_latest_report():
         scan_id = data.get("scan_id", "report")
         md_file = REPORTS_DIR / f"{scan_id}.md"
         if not md_file.exists():
-            return JSONResponse({"error": "Report file not found"}, status_code=404)
+            status = data.get("status", "")
+            if status == "scanning":
+                return JSONResponse({"error": "Scan still in progress — report not ready yet. Wait for the scan to complete."}, status_code=404)
+            return JSONResponse({"error": f"Report file not found for scan {scan_id}"}, status_code=404)
 
         md_text = md_file.read_text()
         body_html = markdown.markdown(md_text, extensions=["tables", "fenced_code"])

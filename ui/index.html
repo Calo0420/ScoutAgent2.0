@@ -74,6 +74,12 @@ canvas{display:block;position:relative;z-index:1}
 .ev.low{border-color:var(--low);color:var(--low)}
 .ev.info{border-color:var(--info);color:var(--info)}
 .ev.ok{border-color:var(--safe);color:var(--safe)}
+/* Scan progress overlay */
+#scanProgress{position:absolute;top:6px;left:50%;transform:translateX(-50%);background:rgba(8,13,20,.92);border:1px solid var(--accent);border-radius:3px;padding:3px 14px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:1.5px;pointer-events:none;z-index:5;white-space:nowrap;display:none;text-align:center}
+/* Event log active scanning glow */
+.event-log.active{border-left-color:var(--accent);box-shadow:inset 2px 0 10px rgba(107,140,170,.12)}
+@keyframes evLogPulse{0%,100%{border-left-color:var(--border)}60%{border-left-color:var(--accent)}}
+.event-log.active{animation:evLogPulse 2s infinite}
 /* Modal */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:50;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
 .modal{background:var(--panel);border:1px solid var(--accent);border-radius:3px;padding:24px;width:480px;max-height:85vh;overflow-y:auto}
@@ -213,6 +219,7 @@ canvas{display:block;position:relative;z-index:1}
   <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
     <div class="canvas-wrap" id="canvasWrap">
       <canvas id="topoCanvas"></canvas>
+      <div id="scanProgress"></div>
       <div class="hud" style="top:6px;left:8px" id="hudNode">NODE: --</div>
       <div class="hud" style="top:6px;right:8px" id="hudScan">READY</div>
       <div class="hud" style="bottom:6px;left:8px" id="hudAccel">MODULES ACTIVE: --</div>
@@ -345,6 +352,22 @@ let NODES = [
   {id:'auto',    label:'Automation',   sub:'Git / Docker only',     icon:'&#9881;', accels:[5],   cfgKeys:['noansible','nocicd'],                               x:0,y:0,w:140,h:60},
 ];
 
+// ========== ACCELERATOR INFO CARDS ==========
+const ACCEL_INFO=[
+  {tag:'A1',name:'Linux Fast Track',color:'#6b8caa',
+   checks:['Checking kernel version & CVEs','Auditing user accounts & sudo','Reviewing SSH daemon config','Checking disk & memory usage','Scanning running services & ports']},
+  {tag:'A2',name:'Hardening Sprint',color:'#8aaece',
+   checks:['Testing SELinux / AppArmor status','Checking firewall rule coverage','Auditing auditd logging daemon','Verifying automatic update policy','Reviewing file permission policies']},
+  {tag:'A3',name:'Network Health',color:'#4aacff',
+   checks:['Port scanning target subnet','Probing MongoDB on port 27017','Probing Redis on port 6379','Checking Telnet on port 23','Checking RDP exposure on 3389']},
+  {tag:'A5',name:'VMware Optimizer',color:'#a78bfa',
+   checks:['Querying vCenter VM inventory','Checking powered-off VM licenses','Analysing vCPU utilization ratios','Scanning unmanaged snapshot sizes','Reviewing cluster resource pools']},
+  {tag:'A7',name:'AI Stack Assess',color:'#f59e0b',
+   checks:['Detecting NVIDIA GPU & CUDA drivers','Checking AI framework installations','Probing model serving endpoints','Scanning for vector databases','Reviewing AI workload resource limits']},
+  {tag:'A8',name:'Automation & IaC',color:'#34d399',
+   checks:['Checking for Ansible / Terraform','Scanning CI/CD pipeline configs','Detecting Docker & container usage','Checking configuration drift risk','Reviewing cron & scheduled jobs']},
+];
+
 // ========== STATE ==========
 let running=false, scanTime=0, scanIdx=0, nodeQueue=[], findings=[], misses=[];
 let agentX=0,agentY=0,agentTargetX=0,agentTargetY=0,agentMoveT=0;
@@ -396,6 +419,24 @@ function render(){
     }
   }
   ctx.setLineDash([]);
+
+  // Pulsing data-stream beams from scanning node during scan
+  if(phase==='scanning'&&nodeQueue[scanIdx]){
+    const sNode=nodeQueue[scanIdx];
+    const scx=sNode.x+sNode.w/2,scy=sNode.y+sNode.h/2;
+    const dashOff=(animT*45)%18;
+    const pulse=(Math.sin(animT*3)+1)/2;
+    for(const other of NODES){
+      if(other.id===sNode.id)continue;
+      const ox=other.x+other.w/2,oy=other.y+other.h/2;
+      ctx.setLineDash([5,9]);
+      ctx.lineDashOffset=-dashOff;
+      ctx.strokeStyle=`rgba(107,140,170,${0.10+0.20*pulse})`;
+      ctx.lineWidth=1.2;
+      ctx.beginPath();ctx.moveTo(scx,scy);ctx.lineTo(ox,oy);ctx.stroke();
+    }
+    ctx.setLineDash([]);ctx.lineDashOffset=0;
+  }
 
   if(phase==='moving'){
     ctx.strokeStyle='rgba(107,140,170,.3)';
@@ -511,6 +552,59 @@ function render(){
   }
 
   drawRadar(W-50,36,28);
+  drawAccelCard();
+}
+
+function drawAccelCard(){
+  if(phase!=='scanning')return;
+  const sNode=nodeQueue[scanIdx];
+  if(!sNode)return;
+  const nodeAccels=sNode.accels.filter(i=>accels[i]);
+  if(!nodeAccels.length)return;
+  const accelIdx=nodeAccels[Math.floor(animT/3)%nodeAccels.length];
+  const ai=ACCEL_INFO[accelIdx];
+  if(!ai)return;
+  const checkI=Math.floor(animT*1.3)%ai.checks.length;
+  const W=canvas.width,H=canvas.height;
+  const cardW=244,cardH=82;
+  const cx=W/2-cardW/2,cy=H/2-cardH/2;
+  // Background panel
+  ctx.fillStyle='rgba(8,13,20,.88)';
+  roundRect(ctx,cx,cy,cardW,cardH,4);ctx.fill();
+  ctx.strokeStyle=ai.color;ctx.lineWidth=1;
+  roundRect(ctx,cx,cy,cardW,cardH,4);ctx.stroke();
+  // Animated left accent bar
+  ctx.fillStyle=ai.color+'33';ctx.fillRect(cx,cy,3,cardH);
+  const barY=cy+(animT*38)%cardH;
+  ctx.fillStyle=ai.color;ctx.fillRect(cx,barY,3,Math.min(18,cardH-(barY-cy)));
+  // Pulse dot top-right
+  const pp=(Math.sin(animT*5)+1)/2;
+  ctx.fillStyle=`rgba(${hexToRgb(ai.color)},${0.35*pp})`;
+  ctx.beginPath();ctx.arc(cx+cardW-16,cy+16,6+pp*3,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle=ai.color;ctx.lineWidth=1;
+  ctx.beginPath();ctx.arc(cx+cardW-16,cy+16,5,0,Math.PI*2);ctx.stroke();
+  // Tag + name
+  ctx.fillStyle=ai.color;
+  ctx.font='bold 10px Share Tech Mono';ctx.textAlign='left';
+  ctx.fillText(`${ai.tag}  ${ai.name.toUpperCase()}`,cx+12,cy+17);
+  // Divider
+  ctx.strokeStyle=ai.color+'44';ctx.lineWidth=0.5;
+  ctx.beginPath();ctx.moveTo(cx+8,cy+24);ctx.lineTo(cx+cardW-8,cy+24);ctx.stroke();
+  // Current check line
+  const dots='.'.repeat((Math.floor(animT*3)%3)+1);
+  ctx.fillStyle='rgba(240,244,248,.75)';
+  ctx.font='9px Share Tech Mono';
+  ctx.fillText(`▶  ${ai.checks[checkI]}${dots}`,cx+12,cy+40);
+  // Progress dots
+  for(let i=0;i<ai.checks.length;i++){
+    ctx.fillStyle=i===checkI?ai.color:'#2a3d52';
+    ctx.beginPath();ctx.arc(cx+12+i*14,cy+58,3,0,Math.PI*2);ctx.fill();
+  }
+  // Check counter
+  ctx.fillStyle='rgba(130,138,145,.6)';
+  ctx.font='8px Share Tech Mono';ctx.textAlign='right';
+  ctx.fillText(`${checkI+1}/${ai.checks.length}`,cx+cardW-10,cy+62);
+  ctx.textAlign='left';
 }
 
 function highestSev(node){
@@ -587,6 +681,7 @@ function startScan(){
   document.getElementById('scoreNum').textContent='--';
   document.getElementById('runBtn').textContent='&#9632; RESET';
   document.getElementById('hudScan').textContent='SCANNING...';
+  document.querySelector('.event-log').classList.add('active');
   pings=[];
 
   if(nodeQueue.length>0) moveToNode(nodeQueue[0]);
@@ -595,18 +690,29 @@ function startScan(){
   logEv(`Assessment modules active: ${acOn}/6`,'info');
 
   // Trigger real agent scan in background — reports/latest.json will be updated on completion
+  realScanStarted = false;
+  scanStartedAt = Date.now();
   fetch('/api/run',{method:'POST'})
     .then(r=>r.json())
-    .then(d=>{if(d.ok) logEv('Agent scan started — report will load when complete','ok');
-              else logEv(`Agent: ${d.error||'not started'}`,'med');})
+    .then(d=>{
+      if(d.ok){
+        realScanStarted = true;
+        logEv('Agent scan started — report will load when complete','ok');
+      }else{
+        logEv(`Agent: ${d.error||'not started'}`,'med');
+      }
+    })
     .catch(()=>logEv('UI-only mode — no agent connected','med'));
 }
 
 function resetScan(){
   running=false; phase='idle'; scanIdx=0; nodeStates={};
-  findings=[]; misses=[];
+  findings=[]; misses=[]; realScanStarted=false;
+  window._waitingForScanModal=false;
   document.getElementById('runBtn').textContent='&#9654; RUN SCAN';
   document.getElementById('hudScan').textContent='READY';
+  document.querySelector('.event-log').classList.remove('active');
+  document.getElementById('scanProgress').style.display='none';
   agentX=NODES[0].x+NODES[0].w/2;
   agentY=NODES[0].y+NODES[0].h/2;
 }
@@ -676,6 +782,7 @@ function update(dt){
     agentX+=(agentTargetX-agentX)*0.1;
     agentY+=(agentTargetY-agentY)*0.1;
   }
+  updateScanProgress();
 }
 
 function processCheck(node,check){
@@ -720,6 +827,7 @@ function finalizeScan(){
   running=false;
   document.getElementById('runBtn').textContent='&#9654; RUN SCAN';
   document.getElementById('hudScan').textContent='COMPLETE';
+  document.querySelector('.event-log').classList.remove('active');
   // Scan meta line — show host and timestamp
   const metaEl=document.getElementById('mScanMeta');
   if(metaEl){
@@ -805,31 +913,56 @@ function finalizeScan(){
     document.getElementById('mMisses').style.display='none';
   }
 
-  // Show download button only when live scan data is available
+  // Hide download button — will only re-appear once the real scan is confirmed complete
   const dlBtn=document.getElementById('btnDownloadReport');
-  if(dlBtn) dlBtn.style.display=Object.keys(liveDetails).length>0?'block':'none';
+  if(dlBtn) dlBtn.style.display='none';
 
-  // Only open the modal once the real server scan is complete.
-  // If still scanning, set a flag — pollLatest() will open it when done.
-  fetch('/api/run/status').then(r=>r.json()).then(s=>{
-    if(!s.running){
+  // If we triggered a real scan this session, ALWAYS wait for it to finish.
+  // Never open the modal with demo-only data while a scan is running or pending.
+  if(realScanStarted){
+    window._waitingForScanModal = true;
+    logEv('Waiting for agent scan to complete...','info');
+  }else{
+    // No real scan was triggered — check status and open demo modal if nothing is running
+    fetch('/api/run/status').then(r=>r.json()).then(s=>{
+      if(!s.running){
+        setTimeout(()=>document.getElementById('modal').style.display='flex',600);
+      }else{
+        window._waitingForScanModal = true;
+      }
+    }).catch(()=>{
       setTimeout(()=>document.getElementById('modal').style.display='flex',600);
-    } else {
-      window._waitingForScanModal = true;
-    }
-  }).catch(()=>{
-    setTimeout(()=>document.getElementById('modal').style.display='flex',600);
-  });
+    });
+  }
 }
 
-function logEv(msg,type='info'){
+function logEv(msg,cls='info'){
   const el=document.getElementById('evList');
   const div=document.createElement('div');
-  div.className=`ev ${type}`;
+  div.className=`ev ${cls}`;
   const ts=scanTime.toFixed(1);
-  div.textContent=`[${ts}s] ${msg}`;
+  const full=`[${ts}s] ${msg}`;
   el.prepend(div);
-  if(el.children.length>60) el.lastChild.remove();
+  if(el.children.length>60)el.lastChild.remove();
+  if(running){
+    let i=0;
+    const spd=Math.max(4,Math.floor(220/full.length));
+    const tick=()=>{i++;div.textContent=full.substring(0,i)+(i<full.length?'▌':'');if(i<full.length)setTimeout(tick,spd);};
+    setTimeout(tick,0);
+  }else{div.textContent=full;}
+}
+
+function updateScanProgress(){
+  const el=document.getElementById('scanProgress');
+  if(!running||phase==='idle'||phase==='done'){el.style.display='none';return;}
+  el.style.display='block';
+  const sNode=nodeQueue[scanIdx];
+  if(phase==='moving'&&sNode){
+    el.textContent=`► MOVING TO ${sNode.label.toUpperCase()} — NODE ${scanIdx+1} / ${nodeQueue.length}`;
+  }else if(phase==='scanning'&&sNode){
+    const done=Math.min(checkIdx,currentChecks.length);
+    el.textContent=`► ${sNode.label.toUpperCase()} — CHECK ${done} / ${currentChecks.length}`;
+  }
 }
 
 // ========== MAIN LOOP ==========
@@ -920,6 +1053,8 @@ let userControlled = false; // set true once user manually picks a preset or tog
 let liveDetails = {};
 let liveMeta = {};
 let configuredHost = '';
+let realScanStarted = false; // true when this session triggered a real agent scan
+let scanStartedAt = 0;      // Date.now() when user hit RUN SCAN — guards against stale poll data
 
 function applyLiveResults(data) {
   if (!data || !data.findings) return;
@@ -977,16 +1112,63 @@ function applyLiveResults(data) {
     logEv(`Host: ${m.host || '?'} | OS: ${m.os || '?'} | CIS: ${m.cis_score || '?'}`, 'info');
   }
 
-  // Always show download button as soon as complete scan data is available
+  // Show download button only once real scan is confirmed complete
   if (data.status === 'complete' && Object.keys(liveDetails).length > 0) {
     const dlBtn = document.getElementById('btnDownloadReport');
     if (dlBtn) dlBtn.style.display = 'block';
   }
 
-  // If the UI animation finished while the scan was still running, open the modal now
+  // If the UI animation finished while the scan was still running, open the modal now.
+  // Guard: only open for scans that completed AFTER this session started (reject stale data).
   if (data.status === 'complete' && window._waitingForScanModal) {
-    window._waitingForScanModal = false;
-    setTimeout(()=>document.getElementById('modal').style.display='flex', 800);
+    const scanTs = parseScanTs(data.scanned_at);
+    if (scanTs >= scanStartedAt) {
+      window._waitingForScanModal = false;
+      realScanStarted = false;
+      rebuildModalFromLive(data);
+      setTimeout(()=>document.getElementById('modal').style.display='flex', 800);
+    }
+  }
+}
+
+function parseScanTs(ts){
+  // "20260508_155215" → epoch ms
+  if(!ts) return 0;
+  const m=ts.match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
+  if(!m) return 0;
+  return new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}`).getTime();
+}
+
+function rebuildModalFromLive(data){
+  // Re-run finalizeScan score calculation after real scan data is loaded into toggles
+  // so the modal shows the real score, not the demo animation score.
+  const allVulns=getActiveConfigs();
+  const catchable=allVulns.filter(([k,v])=>accels[v.accel]);
+  const total=allVulns.length;
+  const coverage=total===0?100:Math.round((catchable.length/Math.max(1,total))*100);
+  const SEV_PENALTY={crit:20,high:12,med:5,low:2};
+  const MAX_PENALTY=Object.values(CONFIGS).reduce((s,c)=>s+(SEV_PENALTY[c.sev]||0),0);
+  const penalty=findings.reduce((s,f)=>s+(SEV_PENALTY[f.sev]||0),0);
+  const score=findings.length===0?100:Math.max(0,Math.round(100-(penalty/MAX_PENALTY)*95));
+  // Update score display and modal fields
+  document.getElementById('scoreNum').textContent=score;
+  document.getElementById('scoreNum').style.color=score>=75?'var(--safe)':score>=45?'var(--med)':'var(--crit)';
+  document.getElementById('mScore').textContent=score;
+  document.getElementById('mScore').style.color=score>=75?'var(--safe)':score>=45?'var(--med)':'var(--crit)';
+  const grade=score>=90?'A — SECURE':score>=75?'B — LOW RISK':score>=50?'C — AT RISK':score>=25?'D — HIGH RISK':'F — CRITICAL';
+  document.getElementById('mGrade').textContent=grade;
+  document.getElementById('mGrade').style.color=score>=75?'var(--safe)':score>=45?'var(--med)':'var(--crit)';
+  document.getElementById('sCov').textContent=`${coverage}%`;
+  // Update meta line with real data
+  const m=data.meta||{};
+  const metaEl=document.getElementById('mScanMeta');
+  if(metaEl&&m.host){
+    const os=m.os?` · ${m.os}`:'';
+    const ts=data.scanned_at?new Date(
+      data.scanned_at.replace(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/,'$1-$2-$3T$4:$5:$6')
+    ).toLocaleString():new Date().toLocaleString();
+    metaEl.textContent=`${m.host}${os} · scanned ${ts}`;
+    metaEl.style.color='';
   }
 }
 
@@ -1205,7 +1387,11 @@ async function saveSettings(){
 async function downloadReport(){
   try{
     const res=await fetch('/api/report/latest');
-    if(!res.ok){alert('No report available yet — run a scan first.');return;}
+    if(!res.ok){
+      const d=await res.json().catch(()=>({}));
+      alert(d.error||'No report available yet — run a scan first.');
+      return;
+    }
     const blob=await res.blob();
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
