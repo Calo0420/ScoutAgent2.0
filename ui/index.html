@@ -1140,17 +1140,32 @@ function parseScanTs(ts){
 }
 
 function rebuildModalFromLive(data){
-  // Re-run finalizeScan score calculation after real scan data is loaded into toggles
-  // so the modal shows the real score, not the demo animation score.
-  const allVulns=getActiveConfigs();
-  const catchable=allVulns.filter(([k,v])=>accels[v.accel]);
-  const total=allVulns.length;
-  const coverage=total===0?100:Math.round((catchable.length/Math.max(1,total))*100);
+  // Build real findings list from actual scan data (not demo animation array)
+  const host = configuredHost || (data.meta||{}).host || 'live host';
+  const realFindings = [];
+  if(data.findings){
+    for(const [key,val] of Object.entries(data.findings)){
+      if(val===true && CONFIGS[key]){
+        const cfg = CONFIGS[key];
+        const liveLabel = cfg.label.replace(/10\.\d+\.\d+\.\d+/g, host);
+        const liveDetail = (data.details&&data.details[key]&&data.details[key]!=='OK'&&data.details[key]!=='Unknown')
+          ? data.details[key] : cfg.detail;
+        realFindings.push({key, sev:cfg.sev, label:liveLabel, detail:liveDetail});
+      }
+    }
+  }
+
+  // Score from real findings
   const SEV_PENALTY={crit:20,high:12,med:5,low:2};
   const MAX_PENALTY=Object.values(CONFIGS).reduce((s,c)=>s+(SEV_PENALTY[c.sev]||0),0);
-  const penalty=findings.reduce((s,f)=>s+(SEV_PENALTY[f.sev]||0),0);
-  const score=findings.length===0?100:Math.max(0,Math.round(100-(penalty/MAX_PENALTY)*95));
-  // Update score display and modal fields
+  const penalty=realFindings.reduce((s,f)=>s+(SEV_PENALTY[f.sev]||0),0);
+  const score=realFindings.length===0?100:Math.max(0,Math.round(100-(penalty/MAX_PENALTY)*95));
+
+  const allVulns=getActiveConfigs();
+  const catchable=allVulns.filter(([k,v])=>accels[v.accel]);
+  const coverage=allVulns.length===0?100:Math.round((catchable.length/Math.max(1,allVulns.length))*100);
+
+  // Score displays
   document.getElementById('scoreNum').textContent=score;
   document.getElementById('scoreNum').style.color=score>=75?'var(--safe)':score>=45?'var(--med)':'var(--crit)';
   document.getElementById('mScore').textContent=score;
@@ -1159,15 +1174,50 @@ function rebuildModalFromLive(data){
   document.getElementById('mGrade').textContent=grade;
   document.getElementById('mGrade').style.color=score>=75?'var(--safe)':score>=45?'var(--med)':'var(--crit)';
   document.getElementById('sCov').textContent=`${coverage}%`;
-  // Update meta line with real data
+
+  // Verdict
+  const verdict=score===100?'No issues detected. Infrastructure meets security best practices across all assessed areas.'
+    :score>=75?'Infrastructure is in good shape. A few areas for improvement were identified.'
+    :score>=45?'Significant vulnerabilities found. Remediation recommended before next quarter.'
+    :'Infrastructure at critical risk. Immediate action required.';
+  document.getElementById('mVerdict').textContent=verdict;
+
+  // Key findings from REAL data
+  const topFindings=realFindings.filter(f=>f.sev==='crit'||f.sev==='high').slice(0,4);
+  const mf=document.getElementById('mFindings');
+  if(topFindings.length>0){
+    mf.innerHTML=`<div style="font-size:9px;letter-spacing:2px;color:var(--muted);margin-bottom:7px;font-family:'Share Tech Mono',monospace">KEY FINDINGS</div>`+
+      topFindings.map(f=>{
+        const impact=CONFIGS[f.key]?.business||f.detail;
+        return `<div class="finding-item" style="border-color:${SCOLORS[f.sev]};background:rgba(${hexToRgb(SCOLORS[f.sev])},.04)">
+          <div class="finding-item-label" style="color:${SCOLORS[f.sev]}">[${f.sev.toUpperCase()}] ${f.label}</div>
+          <div class="finding-item-impact">${impact}</div>
+        </div>`;
+      }).join('');
+  }else{
+    mf.innerHTML='';
+  }
+
+  // Summary grid
+  const crit=realFindings.filter(f=>f.sev==='crit').length;
+  const high=realFindings.filter(f=>f.sev==='high').length;
+  document.getElementById('mGrid').innerHTML=`
+    <div class="mk">Issues detected</div><div class="mv" style="color:${realFindings.length>0?'var(--crit)':'var(--safe)'}\">${realFindings.length}</div>
+    <div class="mk">Critical issues</div><div class="mv" style="color:var(--crit)">${crit}</div>
+    <div class="mk">High-risk issues</div><div class="mv" style="color:var(--high)">${high}</div>
+    <div class="mk">Module coverage</div><div class="mv">${coverage}%</div>
+    <div class="mk">Security score</div><div class="mv" style="color:${score>=75?'var(--safe)':score>=45?'var(--med)':'var(--crit)'}\">${score}/100</div>
+  `;
+
+  // Meta line
   const m=data.meta||{};
   const metaEl=document.getElementById('mScanMeta');
-  if(metaEl&&m.host){
+  if(metaEl){
     const os=m.os?` · ${m.os}`:'';
     const ts=data.scanned_at?new Date(
       data.scanned_at.replace(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/,'$1-$2-$3T$4:$5:$6')
     ).toLocaleString():new Date().toLocaleString();
-    metaEl.textContent=`${m.host}${os} · scanned ${ts}`;
+    metaEl.textContent=`${m.host||host}${os} · scanned ${ts}`;
     metaEl.style.color='';
   }
 }
@@ -1320,7 +1370,8 @@ async function loadSettings(){
       document.getElementById('sTargetHost').value=d.target_host||'';
       document.getElementById('sSshUser').value=d.ssh_user||'root';
       document.getElementById('sSshPort').value=d.ssh_port||22;
-      document.getElementById('sSshKeyStatus').textContent=d.ssh_key?'Key saved at: '+d.ssh_key:'No key saved';
+      document.getElementById('sSshKeyPath').value=d.ssh_key||'';
+      document.getElementById('sSshKeyStatus').textContent=d.ssh_key?'Active: '+d.ssh_key:'No key configured';
       document.getElementById('sSubnet').value=d.subnet||'';
       document.getElementById('sVcenterHost').value=d.vcenter_host||'';
       document.getElementById('sVcenterUser').value=d.vcenter_user||'';
@@ -1346,6 +1397,7 @@ async function saveSettings(){
     target_host: document.getElementById('sTargetHost').value,
     ssh_user:    document.getElementById('sSshUser').value,
     ssh_port:    parseInt(document.getElementById('sSshPort').value)||22,
+    ssh_key:     document.getElementById('sSshKeyPath').value.trim(),
     subnet:      document.getElementById('sSubnet').value,
     vcenter_host:document.getElementById('sVcenterHost').value,
     vcenter_user:document.getElementById('sVcenterUser').value,
@@ -1416,7 +1468,8 @@ async function saveSSHKey(){
       msg.style.color='var(--safe)';
       msg.textContent='Key saved at '+d.path;
       document.getElementById('sSshKeyContent').value='';
-      document.getElementById('sSshKeyStatus').textContent='Key saved at: '+d.path;
+      document.getElementById('sSshKeyPath').value=d.path;
+      document.getElementById('sSshKeyStatus').textContent='Active: '+d.path;
     }else{
       msg.style.color='var(--crit)';
       msg.textContent=d.error||'Failed to save key.';
@@ -1429,8 +1482,7 @@ async function testConnection(){
   const host=document.getElementById('sTargetHost').value.trim();
   const user=document.getElementById('sSshUser').value.trim()||'root';
   const port=parseInt(document.getElementById('sSshPort').value)||22;
-  const keyStatus=document.getElementById('sSshKeyStatus').textContent;
-  const keyPath=keyStatus.startsWith('Key saved at: ')?keyStatus.replace('Key saved at: ',''):'';
+  const keyPath=document.getElementById('sSshKeyPath').value.trim();
   const password=document.getElementById('sSshPassword').value.trim();
   try{
     const res=await fetch('/api/test-connection',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({host,user,port,key_path:keyPath,password})});
@@ -1512,10 +1564,13 @@ document.getElementById('settingsPassInput').addEventListener('keydown',e=>{if(e
       <!-- SSH AUTH -->
       <div class="settings-section-hdr">SSH Authentication</div>
       <div class="settings-field">
-        <label class="settings-label">Current SSH Key</label>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:8px;font-family:'Share Tech Mono',monospace" id="sSshKeyStatus">No key saved</div>
-        <label class="settings-label">Paste Private Key</label>
-        <textarea class="settings-input" id="sSshKeyContent" rows="5" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...paste your full private key here...&#10;-----END OPENSSH PRIVATE KEY-----" style="font-family:'Share Tech Mono',monospace;font-size:10px;resize:vertical;line-height:1.4"></textarea>
+        <label class="settings-label">SSH Key Path <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(existing key on server)</span></label>
+        <input type="text" class="settings-input" id="sSshKeyPath" placeholder="e.g. /root/.ssh/scout_local_key">
+        <div style="font-size:10px;color:var(--muted);margin-top:4px;font-family:'Share Tech Mono',monospace" id="sSshKeyStatus">No key saved</div>
+      </div>
+      <div class="settings-field">
+        <label class="settings-label">— or — Paste Private Key <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(paste content, server will save it)</span></label>
+        <textarea class="settings-input" id="sSshKeyContent" rows="4" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...paste your full private key here...&#10;-----END OPENSSH PRIVATE KEY-----" style="font-family:'Share Tech Mono',monospace;font-size:10px;resize:vertical;line-height:1.4"></textarea>
         <div style="display:flex;gap:8px;margin-top:8px;align-items:stretch">
           <input type="text" class="settings-input" id="sSshKeyName" placeholder="Key filename (e.g. client_key)" style="flex:1;margin:0">
           <button class="run-btn" style="padding:0 14px;font-size:11px;white-space:nowrap;margin:0" onclick="saveSSHKey()">SAVE KEY</button>
