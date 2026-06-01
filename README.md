@@ -7,6 +7,20 @@ ScoutAgent 2.0 is a Claude-powered infrastructure assessment tool that connects 
 
 ---
 
+## 🔐 Trust Layer — Powered by Gatekeeper
+
+ScoutAgent 2.0 works with **[Gatekeeper](https://github.com/Calo0420/Gatekeeper)** — an AI trust gateway that monitors and certifies every scan session.
+
+When deployed with Gatekeeper:
+- Client approves the exact scope before ScoutAgent enters
+- Every file access is logged and monitored in real time
+- Unauthorized access attempts are blocked automatically
+- A cryptographically signed audit report is generated on exit
+
+> *Gatekeeper is what makes ScoutAgent enterprise-deployable.*
+
+---
+
 ## What It Does
 
 | Phase | What Happens |
