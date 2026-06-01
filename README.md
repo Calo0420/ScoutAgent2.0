@@ -273,6 +273,14 @@ Download as a branded PDF directly from the dashboard after scan completion.
 
 ---
 
+## 👥 Team
+
+| Name | Role |
+|------|------|
+| Oscar Reyes Luna | Creator · Builder · Everforth Innovation Labs |
+
+---
+
 ## License
 
 Proprietary — Everforth / Apex Systems. Internal use only.
