@@ -278,6 +278,7 @@ Download as a branded PDF directly from the dashboard after scan completion.
 | Name | Role |
 |------|------|
 | Oscar Reyes Luna | Creator · Builder · Everforth Innovation Labs |
+| Juan Alonso | Creator · Accelerators Implementation · Everforth Innovation Labs |
 
 ---
 
