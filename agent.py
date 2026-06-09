@@ -19,6 +19,7 @@ from datetime import datetime
 from pathlib import Path
 
 import anthropic
+from gatekeeper_client import request_access
 
 # Check --demo in sys.argv early so mock imports happen before argparse runs
 DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true" or "--demo" in sys.argv
@@ -420,6 +421,8 @@ def _write_latest(data: dict) -> None:
 # ── Tool dispatcher ───────────────────────────────────────────────────────────
 def dispatch_tool(name: str, inputs: dict) -> str:
     """Routes Claude's tool call to the right Python function."""
+    if not request_access(name):
+        return json.dumps({"error": f"Gatekeeper blocked: {name}"})
     try:
         if name == "scan_linux_environment":
             result = scan_linux_environment(**inputs)
