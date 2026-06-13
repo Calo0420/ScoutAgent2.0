@@ -2,7 +2,7 @@
 """
 AI Infrastructure Scout Agent
 ==============================
-Powered by Claude. Covers accelerators A1, A2, A3, A5, A7, A8.
+Powered by Claude. Covers accelerators A1, A2, A3, A5, A7, A8 (Linux + Windows).
 One agent. One command. Client-ready executive report in minutes.
 
 Usage:
@@ -38,21 +38,24 @@ else:
     from tools.vmware_scout   import scan_vmware_environment
     from tools.network_scout  import scan_network_health
     from tools.ai_stack_scout import assess_ai_stack
+    from tools.windows_scout  import scan_windows_environment, check_windows_security
 
 # ── Model config ──────────────────────────────────────────────────────────────
 # DEPLOY_MODE controls which backend the agent runs on:
-#   "claude"  → direct Anthropic API  (fast, default, data touches Anthropic)
-#   "bedrock" → AWS Bedrock           (stays in client AWS account, compliance-friendly)
-#   "ollama"  → local Ollama server   (air-gap / fully on-prem, needs GPU)
-#   "venice"  → Venice AI via Agent Zero key (OpenAI-compat, open-source models)
+#   "claude"       → direct Anthropic API  (fast, default, data touches Anthropic)
+#   "bedrock"      → AWS Bedrock           (stays in client AWS account, compliance-friendly)
+#   "ollama"       → local Ollama server   (air-gap / fully on-prem, needs GPU)
+#   "venice"       → Venice AI via Agent Zero key (OpenAI-compat, open-source models)
+#   "azure_openai" → Azure OpenAI Service  (stays in client Azure tenant, compliance-friendly)
 DEPLOY_MODE = os.getenv("DEPLOY_MODE", "claude").lower()
 
 # Model IDs per backend
 MODELS = {
-    "claude":  "claude-opus-4-6",
-    "bedrock": "anthropic.claude-opus-4-5",                        # Bedrock model ID format
-    "ollama":  os.getenv("OLLAMA_MODEL", "llama3"),                # configurable local model
-    "venice":  os.getenv("VENICE_MODEL", "llama-3.3-70b"),        # Venice AI (Agent Zero)
+    "claude":        "claude-opus-4-6",
+    "bedrock":       "anthropic.claude-opus-4-5",                        # Bedrock model ID format
+    "ollama":        os.getenv("OLLAMA_MODEL", "llama3"),                # configurable local model
+    "venice":        os.getenv("VENICE_MODEL", "llama-3.3-70b"),        # Venice AI (Agent Zero)
+    "azure_openai":  os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o"),    # Azure OpenAI Service
 }
 
 
@@ -84,16 +87,32 @@ def get_client():
             )
         except ImportError:
             raise RuntimeError("DEPLOY_MODE=venice requires: pip install openai")
+    elif DEPLOY_MODE == "azure_openai":
+        # Azure OpenAI Service — Microsoft's enterprise OpenAI endpoint
+        # Compatible with Derek/Quinnox Azure stack
+        try:
+            from openai import AzureOpenAI
+            return AzureOpenAI(
+                azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+                api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+                api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01"),
+            )
+        except ImportError:
+            raise RuntimeError("DEPLOY_MODE=azure_openai requires: pip install openai")
     else:
         return anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 def _is_openai_compat(client) -> bool:
-    """True when the client is an OpenAI-compatible backend (venice, ollama)."""
+    """True when the client is an OpenAI-compatible backend (venice, ollama, azure_openai)."""
     try:
-        from openai import OpenAI
-        return isinstance(client, OpenAI)
+        from openai import OpenAI, AzureOpenAI
+        return isinstance(client, (OpenAI, AzureOpenAI))
     except ImportError:
-        return False
+        try:
+            from openai import OpenAI
+            return isinstance(client, OpenAI)
+        except ImportError:
+            return False
 
 
 def _to_openai_tools(tools: list) -> list:
@@ -275,6 +294,34 @@ TOOLS = [
         },
     },
     {
+        "name": "scan_windows_environment",
+        "description": "A1 — Windows Fast Track: scans a Windows Server via WinRM. Collects OS version, CPU/RAM/disk, uptime, logged users, local admins, open ports, patch status. Read-only.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "host":     {"type": "string", "description": "Windows Server hostname or IP"},
+                "username": {"type": "string", "description": "Username (DOMAIN\\user or local admin)"},
+                "password": {"type": "string", "description": "Password"},
+                "port":     {"type": "integer", "description": "WinRM port, default 5985", "default": 5985},
+            },
+            "required": ["host", "username", "password"],
+        },
+    },
+    {
+        "name": "check_windows_security",
+        "description": "A2 — Windows Hardening: checks firewall, RDP exposure, Defender, UAC, SMBv1, password policy, failed logins, auto-logon. Returns CIS score and risk level.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "host":     {"type": "string", "description": "Windows Server hostname or IP"},
+                "username": {"type": "string", "description": "Username"},
+                "password": {"type": "string", "description": "Password"},
+                "port":     {"type": "integer", "description": "WinRM port, default 5985", "default": 5985},
+            },
+            "required": ["host", "username", "password"],
+        },
+    },
+    {
         "name": "scan_network_health",
         "description": "A3 - Network Health Check: Discovers live hosts on a subnet, flags risky open ports (Telnet, RDP, MongoDB, Redis etc), measures latency. Returns risk rating.",
         "input_schema": {
@@ -321,6 +368,8 @@ TOOL_TO_NODE = {
     "assess_ai_stack":           "AI/ML Stack",
     "scan_network_health":       "Network Scan",
     "scan_vmware_environment":   "VMware Cluster",
+    "scan_windows_environment":  "Windows Server",
+    "check_windows_security":    "Windows Server",
 }
 
 
@@ -436,6 +485,10 @@ def dispatch_tool(name: str, inputs: dict) -> str:
             result = assess_ai_stack(**inputs)
         elif name == "scan_network_health":
             result = scan_network_health(**inputs)
+        elif name == "scan_windows_environment":
+            result = scan_windows_environment(**inputs)
+        elif name == "check_windows_security":
+            result = check_windows_security(**inputs)
         elif name == "generate_executive_report":
             result = {"status": "report_ready", "findings": inputs["all_findings"]}
         else:
@@ -465,12 +518,13 @@ Today's date: {datetime.now().strftime('%Y-%m-%d')}.
 Client: {client_name}
 
 ## Your Role
-You are a senior infrastructure consultant with deep expertise in Linux, VMware, networking, AI/ML stacks, security hardening, and cost optimization. You think like an engineer but write like a CIO advisor. You find the things clients don't know they should be worried about.
+You are a senior infrastructure consultant with deep expertise in Linux, Windows Server, VMware, networking, AI/ML stacks, security hardening, and cost optimization. You think like an engineer but write like a CIO advisor. You find the things clients don't know they should be worried about.
 
 ## Assessment Rules
 1. Run EVERY tool that applies to the credentials provided. Never skip a tool you have access to.
-2. SSH credentials given → always run ALL THREE: scan_linux_environment + check_cis_benchmarks + audit_automation_maturity + assess_ai_stack
-3. vCenter credentials given → always run scan_vmware_environment
+2. SSH credentials given → always run ALL FOUR: scan_linux_environment + check_cis_benchmarks + audit_automation_maturity + assess_ai_stack
+3. WinRM credentials given → always run BOTH: scan_windows_environment + check_windows_security
+4. vCenter credentials given → always run scan_vmware_environment
 4. Subnet given → always run scan_network_health
 5. If multiple hosts are provided, scan each one individually
 6. Never assume a finding is minor — let the data speak and rate it objectively
@@ -503,12 +557,13 @@ Today's date: {datetime.now().strftime('%Y-%m-%d')}.
 Client: {client_name}
 
 ## Your Role
-You are a senior infrastructure consultant with deep expertise in Linux, VMware, networking, AI/ML stacks, security hardening, and cost optimization. You think like an engineer but write like a CIO advisor. You find the things clients don't know they should be worried about.
+You are a senior infrastructure consultant with deep expertise in Linux, Windows Server, VMware, networking, AI/ML stacks, security hardening, and cost optimization. You think like an engineer but write like a CIO advisor. You find the things clients don't know they should be worried about.
 
 ## Assessment Rules
 1. Run EVERY tool that applies to the credentials provided. Never skip a tool you have access to.
-2. SSH credentials given → always run ALL THREE: scan_linux_environment + check_cis_benchmarks + audit_automation_maturity + assess_ai_stack
-3. vCenter credentials given → always run scan_vmware_environment
+2. SSH credentials given → always run ALL FOUR: scan_linux_environment + check_cis_benchmarks + audit_automation_maturity + assess_ai_stack
+3. WinRM credentials given → always run BOTH: scan_windows_environment + check_windows_security
+4. vCenter credentials given → always run scan_vmware_environment
 4. Subnet given → always run scan_network_health
 5. If multiple hosts are provided, scan each one individually
 6. Never assume a finding is minor — let the data speak and rate it objectively
@@ -638,6 +693,10 @@ if __name__ == "__main__":
     parser.add_argument("--vcenter",  help="vCenter hostname")
     parser.add_argument("--vc-user",  help="vCenter username")
     parser.add_argument("--vc-pass",  help="vCenter password")
+    parser.add_argument("--windows",  metavar="HOST", help="Windows Server host to scan via WinRM")
+    parser.add_argument("--win-user", metavar="USERNAME", help="Windows username (domain\\user or local)")
+    parser.add_argument("--win-pass", metavar="PASSWORD", help="Windows password")
+    parser.add_argument("--win-port", metavar="PORT", type=int, default=5985, help="WinRM port (default 5985)")
     parser.add_argument("--subnet",   help="Network subnet e.g. 10.0.0.0/24")
     parser.add_argument("--demo",     action="store_true", help="Run with mock data — no real infra needed")
     args = parser.parse_args()
@@ -651,6 +710,8 @@ if __name__ == "__main__":
         if args.key:        creds += f" key={args.key}"
         elif args.password: creds += f" password={args.password}"
         parts.append(f"Scan Linux host {args.host} ({creds}). Run linux assessment, CIS benchmarks, automation audit, and AI stack assessment.")
+    if args.windows:
+        parts.append(f"Scan Windows Server {args.windows} via WinRM (user={args.win_user} password={args.win_pass} port={args.win_port}). Run Windows environment scan and Windows security hardening check.")
     if args.vcenter:
         parts.append(f"Scan VMware vCenter at {args.vcenter} user={args.vc_user} password={args.vc_pass}.")
     if args.subnet:
