@@ -20,6 +20,8 @@ from pathlib import Path
 
 import anthropic
 from gatekeeper_client import request_access
+from dotenv import load_dotenv
+load_dotenv()
 
 # Check --demo in sys.argv early so mock imports happen before argparse runs
 DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true" or "--demo" in sys.argv
@@ -52,7 +54,7 @@ DEPLOY_MODE = os.getenv("DEPLOY_MODE", "claude").lower()
 # Model IDs per backend
 MODELS = {
     "claude":        "claude-opus-4-6",
-    "bedrock":       "anthropic.claude-opus-4-5",                        # Bedrock model ID format
+    "bedrock":       "us.anthropic.claude-sonnet-4-6",                        # Bedrock model ID format
     "ollama":        os.getenv("OLLAMA_MODEL", "llama3"),                # configurable local model
     "venice":        os.getenv("VENICE_MODEL", "llama-3.3-70b"),        # Venice AI (Agent Zero)
     "azure_openai":  os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o"),    # Azure OpenAI Service
@@ -63,9 +65,10 @@ def get_client():
     """Returns the right Claude client based on DEPLOY_MODE."""
     if DEPLOY_MODE == "bedrock":
         return anthropic.AnthropicBedrock(
-            aws_access_key=os.getenv("AWS_ACCESS_KEY_ID"),
-            aws_secret_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+            aws_access_key=os.getenv("aws_access_key_id"),
+            aws_secret_key=os.getenv("aws_secret_access_key"),
             aws_region=os.getenv("AWS_REGION", "us-east-1"),
+            aws_session_token=os.getenv("aws_session_token"),
         )
     elif DEPLOY_MODE == "ollama":
         # Ollama exposes an OpenAI-compatible endpoint — requires openai library

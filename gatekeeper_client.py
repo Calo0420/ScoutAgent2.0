@@ -90,7 +90,7 @@ def request_access(resource: str, action: str = "execute") -> bool:
         if allowed:
             print(f"[Gatekeeper] ALLOWED: {resource}")
         else:
-            print(f"[Gatekeeper] BLOCKED: {resource} — {data.get(reason, Outside approved scope)}")
+            print(f"[Gatekeeper] BLOCKED: {resource} — {data.get('reason', 'Outside approved scope')}")
             if data.get("ai_analysis"):
                 analysis = data["ai_analysis"]
                 print(f"[Gatekeeper] Risk Level: {analysis.get(risk_level)}")
