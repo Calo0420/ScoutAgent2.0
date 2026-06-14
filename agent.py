@@ -669,7 +669,7 @@ def save_report(report: str, client_name: str, all_findings: dict = None) -> str
     slug = client_name.lower().replace(" ", "_")
 
     md_path = f"reports/{slug}_{ts}.md"
-    with open(md_path, "w") as f:
+    with open(md_path, "w", encoding="utf-8") as f:
         f.write(report)
     print(f"\n[Scout] Report saved → {md_path}")
 

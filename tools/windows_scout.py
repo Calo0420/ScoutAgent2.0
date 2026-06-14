@@ -13,6 +13,30 @@ except ImportError:
     WINRM_AVAILABLE = False
 
 
+def _make_session(host: str, username: str, password: str, port: int, use_ssl: bool):
+    """Try WinRM transports in order until one connects. Returns (session, transport_used)."""
+    protocol = "https" if use_ssl else "http"
+    endpoint = f"{protocol}://{host}:{port}/wsman"
+    for transport in ("ntlm", "negotiate", "basic"):
+        try:
+            session = winrm.Session(endpoint, auth=(username, password),
+                                    transport=transport,
+                                    server_cert_validation="ignore",
+                                    operation_timeout_sec=15,
+                                    read_timeout_sec=30)
+            # Probe with a trivial command to confirm the transport works
+            result = session.run_ps("echo ok")
+            if result.status_code == 0:
+                return session, transport
+        except Exception:
+            continue
+    raise ConnectionError(
+        f"WinRM authentication failed on {host}:{port} with all transports "
+        "(ntlm, negotiate, basic). Ensure WinRM is enabled (winrm quickconfig) "
+        "and the account has Remote Management Users membership."
+    )
+
+
 def _ps_run(session, script):
     """Execute a PowerShell command and return stdout."""
     result = session.run_ps(script)
@@ -46,13 +70,7 @@ def scan_windows_environment(
         }
 
     try:
-        protocol = "https" if use_ssl else "http"
-        session = winrm.Session(
-            f"{protocol}://{host}:{port}/wsman",
-            auth=(username, password),
-            transport="basic",
-            server_cert_validation="ignore" if use_ssl else "ignore"
-        )
+        session, _ = _make_session(host, username, password, port, use_ssl)
 
         findings = {
             "host": host,
@@ -120,7 +138,7 @@ def scan_windows_environment(
             "error": str(e),
             "host": host,
             "scanned_at": datetime.utcnow().isoformat(),
-            "connection_tip": "Ensure WinRM is enabled: winrm quickconfig && Set-Item WSMan:\\localhost\\Service\\Auth\\Basic $true"
+            "connection_tip": "Ensure WinRM is enabled (winrm quickconfig) and the account is in Remote Management Users group."
         }
 
 
@@ -144,13 +162,7 @@ def check_windows_security(
         }
 
     try:
-        protocol = "https" if use_ssl else "http"
-        session = winrm.Session(
-            f"{protocol}://{host}:{port}/wsman",
-            auth=(username, password),
-            transport="basic",
-            server_cert_validation="ignore"
-        )
+        session, _ = _make_session(host, username, password, port, use_ssl)
 
         checks = {}
 

@@ -21,7 +21,8 @@ DOCS_DIR    = Path(__file__).parent.parent / "docs"
 UI_DIR      = Path(__file__).parent
 ENV_PATH    = Path(__file__).parent.parent / ".env"
 AGENT_PATH  = Path(__file__).parent.parent / "agent.py"
-PYTHON_PATH = Path(__file__).parent.parent / ".venv" / "bin" / "python3"
+import sys as _sys
+PYTHON_PATH = Path(__file__).parent.parent / ".venv" / ("Scripts" if _sys.platform == "win32" else "bin") / ("python.exe" if _sys.platform == "win32" else "python3")
 ROOT_DIR    = Path(__file__).parent.parent
 
 _scan_lock = threading.Lock()
