@@ -7,6 +7,7 @@ Run: uvicorn server:app --host 0.0.0.0 --port 7070
 import json
 import os
 import subprocess
+import sys
 import threading
 from pathlib import Path
 
@@ -21,8 +22,11 @@ DOCS_DIR    = Path(__file__).parent.parent / "docs"
 UI_DIR      = Path(__file__).parent
 ENV_PATH    = Path(__file__).parent.parent / ".env"
 AGENT_PATH  = Path(__file__).parent.parent / "agent.py"
-import sys as _sys
-PYTHON_PATH = Path(__file__).parent.parent / ".venv" / ("Scripts" if _sys.platform == "win32" else "bin") / ("python.exe" if _sys.platform == "win32" else "python3")
+PYTHON_PATH = (
+    Path(__file__).parent.parent / ".venv" / "Scripts" / "python.exe"
+    if sys.platform == "win32"
+    else Path(__file__).parent.parent / ".venv" / "bin" / "python3"
+)
 ROOT_DIR    = Path(__file__).parent.parent
 
 _scan_lock = threading.Lock()
@@ -142,11 +146,14 @@ def save_ssh_key(payload: dict = Body(...)):
     body    = "".join(l for l in lines if not l.startswith("-----"))
     wrapped = "\n".join(body[i:i+70] for i in range(0, len(body), 70))
     key_content = f"{header}\n{wrapped}\n{footer}\n"
-    ssh_dir  = Path("/root/.ssh")
+    ssh_dir  = Path.home() / ".ssh"
     ssh_dir.mkdir(mode=0o700, exist_ok=True)
     key_path = ssh_dir / key_name
     key_path.write_text(key_content)
-    key_path.chmod(0o600)
+    try:
+        key_path.chmod(0o600)  # no-op on Windows, correct on Linux/macOS
+    except NotImplementedError:
+        pass
     write_env({"SSH_KEY": str(key_path)})
     return JSONResponse({"ok": True, "path": str(key_path)})
 

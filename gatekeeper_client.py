@@ -5,15 +5,16 @@ Handles all communication between ScoutAgent and the Gatekeeper AI Trust Gateway
 """
 
 import os
+import time
+
 import requests
 
-GATEKEEPER_URL = os.getenv("GATEKEEPER_URL", "http://localhost:8001")
+GATEKEEPER_URL     = os.getenv("GATEKEEPER_URL", "http://localhost:8001")
 GATEKEEPER_ENABLED = os.getenv("GATEKEEPER_ENABLED", "true").lower() == "true"
 
 AGENT_ID   = "scout-001"
 AGENT_NAME = "ScoutAgent"
 
-# Scope = the tools ScoutAgent will request access to
 REQUESTED_SCOPE = [
     "scan_linux_environment",
     "check_cis_benchmarks",
@@ -21,6 +22,8 @@ REQUESTED_SCOPE = [
     "scan_network_health",
     "assess_ai_stack",
     "scan_vmware_environment",
+    "scan_windows_environment",
+    "check_windows_security",
     "generate_executive_report",
 ]
 
@@ -47,7 +50,7 @@ def register_session() -> str:
         "requested_scope": REQUESTED_SCOPE,
     }, timeout=10)
     resp.raise_for_status()
-    data = resp.json()
+    data        = resp.json()
     _session_id = data["session_id"]
 
     print(f"[Gatekeeper] Session created: {_session_id}")
@@ -55,8 +58,6 @@ def register_session() -> str:
     print(f"[Gatekeeper] Approve at: {GATEKEEPER_URL}/session/approve-ui/{_session_id}")
     print(f"[Gatekeeper] Or via the Gatekeeper dashboard at: {GATEKEEPER_URL}")
 
-    # Poll until approved
-    import time
     while True:
         check = requests.get(f"{GATEKEEPER_URL}/session/{_session_id}/status", timeout=5)
         if check.status_code == 200:
@@ -74,7 +75,7 @@ def request_access(resource: str, action: str = "execute") -> bool:
     Returns True if allowed, False if blocked.
     """
     if not GATEKEEPER_ENABLED or not _session_id:
-        return True  # If Gatekeeper is off, allow everything
+        return True
 
     try:
         resp = requests.post(f"{GATEKEEPER_URL}/access/request", json={
@@ -84,23 +85,23 @@ def request_access(resource: str, action: str = "execute") -> bool:
             "action":     action,
         }, timeout=5)
         resp.raise_for_status()
-        data = resp.json()
+        data    = resp.json()
         allowed = data.get("allowed", False)
 
         if allowed:
             print(f"[Gatekeeper] ALLOWED: {resource}")
         else:
             print(f"[Gatekeeper] BLOCKED: {resource} — {data.get('reason', 'Outside approved scope')}")
-            if data.get("ai_analysis"):
-                analysis = data["ai_analysis"]
-                print(f"[Gatekeeper] Risk Level: {analysis.get(risk_level)}")
-                print(f"[Gatekeeper] {analysis.get(risk_explanation)}")
+            analysis = data.get("ai_analysis")
+            if analysis:
+                print(f"[Gatekeeper] Risk Level: {analysis.get('risk_level')}")
+                print(f"[Gatekeeper] {analysis.get('risk_explanation')}")
 
         return allowed
 
     except Exception as e:
         print(f"[Gatekeeper] Connection error — allowing by default: {e}")
-        return True  # Fail open so ScoutAgent still works if Gatekeeper is down
+        return True
 
 
 def close_session() -> dict:
@@ -118,9 +119,9 @@ def close_session() -> dict:
         resp.raise_for_status()
         data = resp.json()
         print(f"\n[Gatekeeper] Session closed.")
-        print(f"[Gatekeeper] Total requests: {data.get(total_requests, 0)}")
-        print(f"[Gatekeeper] Blocked: {data.get(blocked, 0)}")
-        print(f"[Gatekeeper] Audit report: {GATEKEEPER_URL}{data.get(pdf_url, )}")
+        print(f"[Gatekeeper] Total requests: {data.get('total_requests', 0)}")
+        print(f"[Gatekeeper] Blocked: {data.get('blocked', 0)}")
+        print(f"[Gatekeeper] Audit report: {GATEKEEPER_URL}{data.get('pdf_url', '')}")
         return data
     except Exception as e:
         print(f"[Gatekeeper] Could not close session: {e}")

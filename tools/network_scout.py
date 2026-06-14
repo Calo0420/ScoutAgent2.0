@@ -1,10 +1,9 @@
 """
 Network Scout Tools — covers A3 (Network Health Check)
-Uses nmap + ping + traceroute. Read-only passive scan.
+Uses nmap + ping. Read-only passive scan.
 """
 import subprocess
-import socket
-import json
+import sys
 
 
 def scan_network_health(target_subnet: str) -> dict:
@@ -15,39 +14,49 @@ def scan_network_health(target_subnet: str) -> dict:
     findings = {"subnet": target_subnet, "hosts": [], "risks": []}
 
     # Host discovery
-    result = subprocess.run(
-        ["nmap", "-sn", "-T4", "--open", target_subnet, "-oG", "-"],
-        capture_output=True, text=True, timeout=120
-    )
+    try:
+        result = subprocess.run(
+            ["nmap", "-sn", "-T4", "--open", target_subnet, "-oG", "-"],
+            capture_output=True, text=True, timeout=120,
+        )
+    except FileNotFoundError:
+        return {"error": "nmap not found. Install nmap and ensure it is on PATH.", "subnet": target_subnet}
 
     hosts = []
     for line in result.stdout.splitlines():
         if "Host:" in line and "Status: Up" in line:
-            ip = line.split()[1]
-            hosts.append(ip)
+            hosts.append(line.split()[1])
 
     findings["live_hosts"] = len(hosts)
 
-    # Port scan on discovered hosts — flag risky ports
     risky_ports = {
-        21: "FTP (plaintext)",
-        23: "Telnet (plaintext)",
-        25: "SMTP open relay risk",
-        3389: "RDP exposed",
-        445: "SMB exposed",
-        1433: "MSSQL exposed",
-        3306: "MySQL exposed",
-        5432: "PostgreSQL exposed",
-        6379: "Redis exposed (often no auth)",
+        21:    "FTP (plaintext)",
+        23:    "Telnet (plaintext)",
+        25:    "SMTP open relay risk",
+        445:   "SMB exposed",
+        1433:  "MSSQL exposed",
+        3306:  "MySQL exposed",
+        3389:  "RDP exposed",
+        5432:  "PostgreSQL exposed",
+        6379:  "Redis exposed (often no auth)",
         27017: "MongoDB exposed (often no auth)",
     }
 
+    # Platform-aware ping flags
+    if sys.platform == "win32":
+        ping_args = lambda host: ["ping", "-n", "3", "-w", "1000", host]
+        latency_marker = "Average"
+    else:
+        ping_args = lambda host: ["ping", "-c", "3", "-q", host]
+        latency_marker = "avg"
+
     for host in hosts[:20]:  # cap at 20 hosts for speed
         host_entry = {"ip": host, "open_risky_ports": []}
+
         try:
             port_result = subprocess.run(
                 ["nmap", "-sT", "-T4", "--open", "-p", ",".join(map(str, risky_ports.keys())), host, "-oG", "-"],
-                capture_output=True, text=True, timeout=30
+                capture_output=True, text=True, timeout=30,
             )
             for line in port_result.stdout.splitlines():
                 if "Ports:" in line:
@@ -58,20 +67,21 @@ def scan_network_health(target_subnet: str) -> dict:
         except Exception:
             pass
 
-        # Latency
         try:
-            ping = subprocess.run(["ping", "-c", "3", "-q", host], capture_output=True, text=True, timeout=10)
+            ping = subprocess.run(ping_args(host), capture_output=True, text=True, timeout=10)
             for line in ping.stdout.splitlines():
-                if "avg" in line:
-                    host_entry["avg_latency_ms"] = line.split("/")[4]
+                if latency_marker in line:
+                    parts = line.split("/")
+                    if len(parts) >= 5:
+                        host_entry["avg_latency_ms"] = parts[4]
+                    break
         except Exception:
             pass
 
         findings["hosts"].append(host_entry)
 
-    # Risk rating
     risk_count = len(findings["risks"])
     findings["risk_rating"] = "CRITICAL" if risk_count > 10 else "HIGH" if risk_count > 5 else "MEDIUM" if risk_count > 0 else "LOW"
-    findings["summary"] = f"{len(hosts)} live hosts | {risk_count} risky open ports found"
+    findings["summary"]     = f"{len(hosts)} live hosts | {risk_count} risky open ports found"
 
     return findings
