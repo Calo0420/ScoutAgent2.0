@@ -64,12 +64,17 @@ MODELS = {
 def get_client():
     """Returns the right Claude client based on DEPLOY_MODE."""
     if DEPLOY_MODE == "bedrock":
-        return anthropic.AnthropicBedrock(
-            aws_access_key=os.getenv("aws_access_key_id"),
-            aws_secret_key=os.getenv("aws_secret_access_key"),
-            aws_region=os.getenv("AWS_REGION", "us-east-1"),
-            aws_session_token=os.getenv("aws_session_token"),
-        )
+        ak = os.getenv("aws_access_key_id", "").strip()
+        sk = os.getenv("aws_secret_access_key", "").strip()
+        st = os.getenv("aws_session_token", "").strip()
+        region = os.getenv("AWS_REGION", "us-east-2")
+        kwargs = {"aws_region": region}
+        if ak and sk:
+            kwargs["aws_access_key"] = ak
+            kwargs["aws_secret_key"] = sk
+            if st:
+                kwargs["aws_session_token"] = st
+        return anthropic.AnthropicBedrock(**kwargs)
     elif DEPLOY_MODE == "ollama":
         # Ollama exposes an OpenAI-compatible endpoint — requires openai library
         try:
@@ -561,28 +566,37 @@ def run_scout(user_request: str, client_name: str = "Client") -> str:
     print(f"[Scout] {user_request}\n")
 
     failed_tools = []
+    best_report  = None   # tracks longest report text seen anywhere in the loop
 
     while True:
         response = claude.messages.create(
             model=model,
-            max_tokens=8096,
+            max_tokens=16384,
             system=system_prompt,
             tools=TOOLS,
             messages=messages,
         )
 
-        # Print any text Claude outputs mid-loop
+        # Print any text Claude outputs mid-loop; save as report candidate
         for block in response.content:
             if hasattr(block, "text") and block.text:
                 print(block.text)
+                if len(block.text) > 200:
+                    best_report = block.text
 
         if response.stop_reason == "end_turn":
             for block in reversed(response.content):
                 if hasattr(block, "text") and block.text and len(block.text) > 200:
                     return block.text, all_findings
+            # end_turn with no long text — the report was emitted before a tool call
+            if best_report:
+                return best_report, all_findings
             return "Assessment complete — no report generated.", all_findings
 
         if response.stop_reason != "tool_use":
+            # max_tokens or unexpected stop — return best text seen so far
+            if best_report:
+                return best_report, all_findings
             break
 
         # Execute each tool Claude requested

@@ -140,6 +140,24 @@ canvas{display:block;position:relative;z-index:1}
 .finding-item{padding:8px 10px;margin-bottom:5px;border-left:3px solid;border-radius:0 2px 2px 0}
 .finding-item-label{font-size:11px;font-family:'Share Tech Mono',monospace;font-weight:700}
 .finding-item-impact{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4}
+
+/* AI Report Generation Overlay */
+#aiGenOverlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,8,16,.78);z-index:10;backdrop-filter:blur(2px)}
+#aiGenBox{background:var(--panel);border:1px solid var(--accent);border-radius:4px;padding:24px 32px;width:360px;text-align:center;box-shadow:0 0 40px rgba(107,140,170,.15)}
+#aiGenTitle{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--accent);margin-bottom:14px;text-transform:uppercase}
+#aiGenStatus{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text);margin-bottom:16px;min-height:16px;letter-spacing:.5px}
+@keyframes aiBarGrow{0%{width:4%}15%{width:22%}35%{width:45%}60%{width:68%}80%{width:83%}100%{width:93%}}
+@keyframes aiBarPulse{0%,100%{opacity:.55;box-shadow:none}50%{opacity:1;box-shadow:0 0 8px var(--accent)}}
+@keyframes aiStatusPulse{0%,100%{opacity:.5}50%{opacity:1}}
+#aiGenBarTrack{background:#080d14;border:1px solid var(--accent);border-radius:2px;height:10px;overflow:hidden;margin-bottom:12px}
+#aiGenBarFill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;width:4%;animation:aiBarGrow 150s ease-out forwards}
+#aiGenBarTrack.ai-pulsing{animation:aiBarPulse 1.8s ease-in-out infinite;border-color:var(--accent2)}
+#aiGenStatus.ai-pulsing{animation:aiStatusPulse 1.8s ease-in-out infinite;color:var(--accent2)}
+#aiGenEta{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)}
+.accel-desc{font-size:8px;color:var(--accent);letter-spacing:.3px;display:none;margin-top:3px;line-height:1.4;font-family:'Share Tech Mono',monospace}
+.sec-hdr{cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between}
+.sec-arrow{font-size:8px;color:var(--accent);transition:transform .15s;display:inline-block;margin-right:2px}
+.sec-body{overflow:hidden}
 </style>
 </head>
 <body>
@@ -168,7 +186,7 @@ canvas{display:block;position:relative;z-index:1}
 <main style="flex:1;display:flex;overflow:hidden">
 
   <!-- LEFT: ENVIRONMENT CONFIG -->
-  <aside style="width:210px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;background:var(--panel)">
+  <aside style="width:230px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;background:var(--panel)">
     <div class="phead">&#9881; Scenario Setup</div>
 
     <div style="padding:4px 8px 8px;border-bottom:1px solid var(--border)">
@@ -181,37 +199,56 @@ canvas{display:block;position:relative;z-index:1}
       </div>
     </div>
 
+    <div style="border-top:1px solid var(--border)">
+      <div class="phead">&#9654; Accelerators</div>
+      <div style="padding:6px 8px">
+        <div class="accel on" data-idx="0"><div class="adot"></div><span class="atag">A1</span><div><div class="aname" style="font-size:11px">Linux Fast Track</div><div class="acov">OS Health · Patches</div><div class="accel-desc">Checking OS patches, SSH config, user accounts</div></div></div>
+        <div class="accel on" data-idx="1"><div class="adot"></div><span class="atag">A2</span><div><div class="aname" style="font-size:11px">Hardening Sprint</div><div class="acov">Security Baseline</div><div class="accel-desc">Validating CIS benchmarks, firewall rules, SELinux</div></div></div>
+        <div class="accel on" data-idx="2"><div class="adot"></div><span class="atag">A3</span><div><div class="aname" style="font-size:11px">Network Health</div><div class="acov">Open Ports · Exposure</div><div class="accel-desc">Scanning open ports, exposed services, network exposure</div></div></div>
+        <div class="accel on" data-idx="3"><div class="adot"></div><span class="atag">A5</span><div><div class="aname" style="font-size:11px">VMware Optimizer</div><div class="acov">VM Cost · Snapshots</div><div class="accel-desc">Analyzing VM sizing, snapshots, license waste</div></div></div>
+        <div class="accel on" data-idx="4"><div class="adot"></div><span class="atag">A7</span><div><div class="aname" style="font-size:11px">AI Stack Assess</div><div class="acov">GPU · AI Readiness</div><div class="accel-desc">Detecting AI/ML stack, GPU availability, model serving</div></div></div>
+        <div class="accel on" data-idx="5"><div class="adot"></div><span class="atag">A8</span><div><div class="aname" style="font-size:11px">Automation &amp; IaC</div><div class="acov">Automation · CI/CD</div><div class="accel-desc">Checking Terraform, Ansible, CI/CD pipeline maturity</div></div></div>
+      </div>
+    </div>
     <div style="padding:4px 0 2px">
-      <div class="phead" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px">SERVER SECURITY</div>
+      <div class="phead sec-hdr" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px" onclick="toggleSec(this)">SERVER SECURITY<span class="sec-arrow">&#9654;</span></div>
+      <div class="sec-body" style="display:none">
       <div class="cfg-row" id="row-ssh"><span class="cfg-label">Remote admin: Unrestricted</span><label class="toggle"><input type="checkbox" id="cfg-ssh"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
       <div class="cfg-row" id="row-passauth"><span class="cfg-label">Password login: Allowed</span><label class="toggle"><input type="checkbox" id="cfg-passauth"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
       <div class="cfg-row" id="row-selinux"><span class="cfg-label">OS security layer: Off</span><label class="toggle"><input type="checkbox" id="cfg-selinux"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
       <div class="cfg-row" id="row-auditd"><span class="cfg-label">Activity logging: Off</span><label class="toggle"><input type="checkbox" id="cfg-auditd"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
       <div class="cfg-row" id="row-patch"><span class="cfg-label">Security updates: Overdue</span><label class="toggle"><input type="checkbox" id="cfg-patch"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
       <div class="cfg-row" id="row-disk"><span class="cfg-label">Storage: Near capacity</span><label class="toggle"><input type="checkbox" id="cfg-disk"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      </div>
     </div>
 
     <div style="padding:4px 0 2px;border-top:1px solid var(--border)">
-      <div class="phead" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px">NETWORK</div>
+      <div class="phead sec-hdr" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px" onclick="toggleSec(this)">NETWORK<span class="sec-arrow">&#9654;</span></div>
+      <div class="sec-body" style="display:none">
       <div class="cfg-row" id="row-mongo"><span class="cfg-label">Database: Publicly exposed</span><label class="toggle"><input type="checkbox" id="cfg-mongo"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
       <div class="cfg-row" id="row-redis"><span class="cfg-label">Cache server: Unprotected</span><label class="toggle"><input type="checkbox" id="cfg-redis"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
       <div class="cfg-row" id="row-telnet"><span class="cfg-label">Insecure protocol: Active</span><label class="toggle"><input type="checkbox" id="cfg-telnet"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
       <div class="cfg-row" id="row-rdp"><span class="cfg-label">Remote desktop: Exposed</span><label class="toggle"><input type="checkbox" id="cfg-rdp"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      </div>
     </div>
 
     <div style="padding:4px 0 2px;border-top:1px solid var(--border)">
-      <div class="phead" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px">VIRTUALIZATION</div>
+      <div class="phead sec-hdr" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px" onclick="toggleSec(this)">VIRTUALIZATION<span class="sec-arrow">&#9654;</span></div>
+      <div class="sec-body" style="display:none">
       <div class="cfg-row" id="row-vmsoff"><span class="cfg-label">Unused VMs: Wasting cost</span><label class="toggle"><input type="checkbox" id="cfg-vmsoff"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
       <div class="cfg-row" id="row-oversize"><span class="cfg-label">Oversized VMs: Over-allocated</span><label class="toggle"><input type="checkbox" id="cfg-oversize"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
       <div class="cfg-row" id="row-snap"><span class="cfg-label">Snapshots: Unmanaged risk</span><label class="toggle"><input type="checkbox" id="cfg-snap"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      </div>
     </div>
 
     <div style="padding:4px 0 2px;border-top:1px solid var(--border)">
-      <div class="phead" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px">AI & AUTOMATION</div>
+      <div class="phead sec-hdr" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px" onclick="toggleSec(this)">AI & AUTOMATION<span class="sec-arrow">&#9654;</span></div>
+      <div class="sec-body" style="display:none">
       <div class="cfg-row" id="row-nogpu"><span class="cfg-label">AI hardware: Not available</span><label class="toggle"><input type="checkbox" id="cfg-nogpu"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
       <div class="cfg-row" id="row-nomodel"><span class="cfg-label">AI platform: Not deployed</span><label class="toggle"><input type="checkbox" id="cfg-nomodel"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
       <div class="cfg-row" id="row-noansible"><span class="cfg-label">Automation tools: Missing</span><label class="toggle"><input type="checkbox" id="cfg-noansible"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
       <div class="cfg-row" id="row-nocicd"><span class="cfg-label">Deployment pipeline: Missing</span><label class="toggle"><input type="checkbox" id="cfg-nocicd"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      </div>
     </div>
   </aside>
 
@@ -220,6 +257,14 @@ canvas{display:block;position:relative;z-index:1}
     <div class="canvas-wrap" id="canvasWrap">
       <canvas id="topoCanvas"></canvas>
       <div id="scanProgress"></div>
+      <div id="aiGenOverlay">
+        <div id="aiGenBox">
+          <div id="aiGenTitle">&#9670; AI REPORT GENERATING</div>
+          <div id="aiGenStatus">Initializing analysis...</div>
+          <div id="aiGenBarTrack"><div id="aiGenBarFill"></div></div>
+          <div id="aiGenEta"></div>
+        </div>
+      </div>
       <div class="hud" style="top:6px;left:8px" id="hudNode">NODE: --</div>
       <div class="hud" style="top:6px;right:8px" id="hudScan">READY</div>
       <div class="hud" style="bottom:6px;left:8px" id="hudAccel">MODULES ACTIVE: --</div>
@@ -243,23 +288,15 @@ canvas{display:block;position:relative;z-index:1}
           <div><div style="color:var(--muted);font-size:9px">COVERAGE</div><span id="sCov">--%</span></div>
         </div>
       </div>
-      <div class="event-log">
-        <div class="ev-title">SCAN LOG</div>
-        <div class="ev-list" id="evList"></div>
-      </div>
+
     </div>
   </div>
 
-  <!-- RIGHT: ACCELERATORS -->
-  <aside style="width:200px;flex-shrink:0;border-left:1px solid var(--border);overflow-y:auto;background:var(--panel);display:flex;flex-direction:column">
-    <div class="phead">&#9654; Accelerators</div>
-    <div style="padding:6px 8px;flex:1">
-      <div class="accel on" data-idx="0"><div class="adot"></div><span class="atag">A1</span><div><div class="aname" style="font-size:11px">Linux Fast Track</div><div class="acov">OS Health · Patches</div></div></div>
-      <div class="accel on" data-idx="1"><div class="adot"></div><span class="atag">A2</span><div><div class="aname" style="font-size:11px">Hardening Sprint</div><div class="acov">Security Baseline</div></div></div>
-      <div class="accel on" data-idx="2"><div class="adot"></div><span class="atag">A3</span><div><div class="aname" style="font-size:11px">Network Health</div><div class="acov">Open Ports · Exposure</div></div></div>
-      <div class="accel on" data-idx="3"><div class="adot"></div><span class="atag">A5</span><div><div class="aname" style="font-size:11px">VMware Optimizer</div><div class="acov">VM Cost · Snapshots</div></div></div>
-      <div class="accel on" data-idx="4"><div class="adot"></div><span class="atag">A7</span><div><div class="aname" style="font-size:11px">AI Stack Assess</div><div class="acov">GPU · AI Readiness</div></div></div>
-      <div class="accel on" data-idx="5"><div class="adot"></div><span class="atag">A8</span><div><div class="aname" style="font-size:11px">Automation &amp; IaC</div><div class="acov">Automation · CI/CD</div></div></div>
+  <!-- RIGHT: SCAN LOG + CONTROLS -->
+  <aside style="width:220px;flex-shrink:0;border-left:1px solid var(--border);overflow:hidden;background:var(--panel);display:flex;flex-direction:column">
+    <div class="event-log" style="width:auto;border-left:none;flex:1;min-height:0;overflow:hidden">
+      <div class="ev-title">SCAN LOG</div>
+      <div class="ev-list" id="evList"></div>
     </div>
 
     <div style="border-top:1px solid var(--border)">
@@ -273,18 +310,6 @@ canvas{display:block;position:relative;z-index:1}
       </div>
     </div>
 
-    <div style="border-top:1px solid var(--border)">
-      <div class="phead">Shortcuts</div>
-      <div class="mono" style="padding:6px 10px;font-size:10px;color:var(--muted);display:flex;flex-direction:column;gap:2px">
-        <div><span style="color:var(--text)">SPACE</span> Run / Reset</div>
-        <div><span style="color:var(--text)">1-6</span> Toggle module</div>
-        <div><span style="color:var(--text)">P</span> Presenter bar</div>
-        <div><span style="color:var(--text)">F</span> Fullscreen</div>
-        <div><span style="color:var(--text)">N</span> Worst Case</div>
-        <div><span style="color:var(--text)">C</span> Best Practice</div>
-        <div><span style="color:var(--text)">ESC</span> Close / End demo</div>
-      </div>
-    </div>
   </aside>
 </main>
 
@@ -333,7 +358,10 @@ const CONFIGS = {
   nocicd:    {id:'cfg-nocicd',  accel:5, sev:'med',  label:'No CI/CD pipeline configured',           detail:'Only git + Docker — no automated testing or deployment',          business:'Every software release is manual. Slower delivery, higher error rate, and no safety net if something goes wrong.'},
 };
 
-const ACCEL_MAP = [0,1,2,3,4,5];
+// Score formula: 100 − (actual_penalty / max_possible_penalty) × 95
+const SEV_PENALTY = {crit:20, high:12, med:5, low:2};
+const MAX_PENALTY  = Object.values(CONFIGS).reduce((s,c) => s + (SEV_PENALTY[c.sev]||0), 0);
+
 let accels = [true,true,true,true,true,true];
 
 const PRESETS = {
@@ -345,11 +373,11 @@ const PRESETS = {
 
 // ========== NETWORK TOPOLOGY NODES ==========
 let NODES = [
-  {id:'linux',   label:'Linux Server', sub:'10.0.0.10  RHEL 8.6',  icon:'&#9000;', accels:[0,1], cfgKeys:['ssh','passauth','selinux','auditd','patch','disk'], x:0,y:0,w:140,h:60},
-  {id:'network', label:'Network Scan', sub:'10.0.0.0/24',          icon:'&#9112;', accels:[2],   cfgKeys:['mongo','redis','telnet','rdp'],                     x:0,y:0,w:140,h:60},
-  {id:'vmware',  label:'VMware Cluster',sub:'vc.demo-client.local', icon:'&#9633;', accels:[3],   cfgKeys:['vmsoff','oversize','snap'],                         x:0,y:0,w:140,h:60},
-  {id:'ai',      label:'AI/ML Stack',  sub:'Scikit / No GPU',       icon:'&#9670;', accels:[4],   cfgKeys:['nogpu','nomodel'],                                  x:0,y:0,w:140,h:60},
-  {id:'auto',    label:'Automation',   sub:'Git / Docker only',     icon:'&#9881;', accels:[5],   cfgKeys:['noansible','nocicd'],                               x:0,y:0,w:140,h:60},
+  {id:'linux',   label:'Linux Server', sub:'10.0.0.10  RHEL 8.6',  icon:'&#9000;', accels:[0,1], cfgKeys:['ssh','passauth','selinux','auditd','patch','disk'], x:0,y:0,w:240,h:90},
+  {id:'network', label:'Network Scan', sub:'10.0.0.0/24',          icon:'&#9112;', accels:[2],   cfgKeys:['mongo','redis','telnet','rdp'],                     x:0,y:0,w:240,h:90},
+  {id:'vmware',  label:'VMware Cluster',sub:'vc.demo-client.local', icon:'&#9633;', accels:[3],   cfgKeys:['vmsoff','oversize','snap'],                         x:0,y:0,w:240,h:90},
+  {id:'ai',      label:'AI/ML Stack',  sub:'Scikit / No GPU',       icon:'&#9670;', accels:[4],   cfgKeys:['nogpu','nomodel'],                                  x:0,y:0,w:240,h:90},
+  {id:'auto',    label:'Automation',   sub:'Git / Docker only',     icon:'&#9881;', accels:[5],   cfgKeys:['noansible','nocicd'],                               x:0,y:0,w:240,h:90},
 ];
 
 // ========== ACCELERATOR INFO CARDS ==========
@@ -372,7 +400,7 @@ const ACCEL_INFO=[
 let running=false, scanTime=0, scanIdx=0, nodeQueue=[], findings=[], misses=[];
 let agentX=0,agentY=0,agentTargetX=0,agentTargetY=0,agentMoveT=0;
 let nodeStates={};
-let totalFindings=0, totalMissed=0, nodesScanned=0;
+let totalMissed=0, nodesScanned=0;
 let animT=0, lastT=0, scanDelay=0, checkIdx=0, currentChecks=[];
 let phase='idle';
 let pings=[];
@@ -386,7 +414,7 @@ function layoutNodes(){
   const W=wrap.offsetWidth, H=wrap.offsetHeight;
   canvas.width=W; canvas.height=H;
   const cx=W/2, cy=H/2;
-  const r=Math.min(W,H)*0.3;
+  const r=Math.min(W,H)*0.38;
   for(let i=0;i<NODES.length;i++){
     const a=(i/NODES.length)*Math.PI*2-Math.PI/2;
     NODES[i].x=cx+Math.cos(a)*r-NODES[i].w/2;
@@ -398,6 +426,8 @@ function layoutNodes(){
 }
 
 // ========== RENDERING ==========
+function _trunc(c,t,mw){if(c.measureText(t).width<=mw)return t;while(t.length&&c.measureText(t+'…').width>mw)t=t.slice(0,-1);return t+'…';}
+
 function hexToRgb(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`${r},${g},${b}`}
 const SCOLORS={crit:'#ff2828',high:'#ff7a00',med:'#e8c840',low:'#40c870'};
 
@@ -454,9 +484,10 @@ function render(){
     let borderColor='#1a2d40';
     let bgColor='rgba(8,13,20,.9)';
     let glowColor=null;
+    let hs=null;
 
     if(state==='scanning'){borderColor='#6b8caa';glowColor='rgba(107,140,170,.2)'}
-    else if(state==='risk'){borderColor=SCOLORS[highestSev(node)];glowColor=`rgba(${hexToRgb(SCOLORS[highestSev(node)])}, .15)`}
+    else if(state==='risk'){hs=highestSev(node);borderColor=SCOLORS[hs];glowColor=`rgba(${hexToRgb(SCOLORS[hs])}, .15)`}
     else if(state==='clean'){borderColor='#40c870';glowColor='rgba(64,200,112,.1)'}
     else if(state==='skipped'){borderColor='#2a3d52';glowColor=null}
 
@@ -482,14 +513,21 @@ function render(){
       ctx.fill();
     }
 
+    ctx.save();ctx.beginPath();ctx.rect(node.x,node.y,node.w,node.h);ctx.clip();
     ctx.font='bold 11px Exo 2';
-    ctx.fillStyle=state==='idle'?'#4a6280':state==='scanning'?'#6b8caa':state==='risk'?SCOLORS[highestSev(node)]:state==='clean'?'#40c870':'#2a3d52';
+    ctx.fillStyle=state==='idle'?'#4a6280':state==='scanning'?'#6b8caa':state==='risk'?SCOLORS[hs]:state==='clean'?'#40c870':'#2a3d52';
     ctx.textAlign='center';
-    ctx.fillText(node.label,cx,node.y+22);
+    ctx.fillText(_trunc(ctx,node.label,node.w-16),cx,node.y+22);
 
     ctx.font='9px Share Tech Mono';
     ctx.fillStyle='#828A91';
-    ctx.fillText(node.sub,cx,node.y+35);
+    const _sp=node.sub.split('  ');
+    if(_sp.length>=2){
+      ctx.fillText(_trunc(ctx,_sp[0],node.w-16),cx,node.y+38);
+      ctx.fillText(_trunc(ctx,_sp.slice(1).join('  '),node.w-16),cx,node.y+50);
+    }else{
+      ctx.fillText(_trunc(ctx,node.sub,node.w-16),cx,node.y+44);
+    }
 
     if(state==='risk'){
       const nodeFds=findings.filter(f=>node.cfgKeys.includes(f.key));
@@ -509,6 +547,7 @@ function render(){
         }
       }
     }
+    ctx.restore();
 
     if(state==='scanning'){
       const prog=(Math.sin(animT*4)+1)/2;
@@ -678,6 +717,7 @@ function startScan(){
   document.getElementById('sNodes').textContent=`0/${nodeQueue.length}`;
   document.getElementById('sCov').textContent='--%';
   document.getElementById('evList').innerHTML='';
+  document.querySelectorAll('.accel-desc').forEach(d=>d.style.display='none');
   document.getElementById('scoreNum').textContent='--';
   document.getElementById('runBtn').textContent='&#9632; RESET';
   document.getElementById('hudScan').textContent='SCANNING...';
@@ -718,6 +758,7 @@ function resetScan(){
 }
 
 function moveToNode(node){
+  moveStartX=agentX; moveStartY=agentY;
   phase='moving';
   agentTargetX=node.x+node.w/2;
   agentTargetY=node.y+node.h/2;
@@ -737,7 +778,6 @@ function update(dt){
     agentMoveT+=dt;
     const t=Math.min(1,agentMoveT/MOVE_DUR);
     const ease=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
-    if(agentMoveT<=0.01){moveStartX=agentX;moveStartY=agentY}
     agentX=moveStartX+(agentTargetX-moveStartX)*ease;
     agentY=moveStartY+(agentTargetY-moveStartY)*ease;
     if(t>=1){
@@ -745,6 +785,7 @@ function update(dt){
       const node=nodeQueue[scanIdx];
       if(node){
         nodeStates[node.id]='scanning';
+        showAccelDesc(node.accels.filter(i=>accels[i]));
         currentChecks=getNodeChecks(node);
         checkIdx=0;
         scanDelay=0;
@@ -800,8 +841,7 @@ function processCheck(node,check){
     :cfg.detail;
   if(type==='finding'){
     findings.push({key,sev:cfg.sev,label:liveLabel,detail:liveDetail,node:node.id});
-    totalFindings++;
-    updateFindCounts();
+      updateFindCounts();
     pings.push({x:ncx,y:ncy,t:animT,sev:cfg.sev});
     logEv(`[${cfg.sev.toUpperCase()}] ${liveLabel}`,cfg.sev);
   }else if(type==='miss'){
@@ -848,9 +888,6 @@ function finalizeScan(){
   const total=allVulns.length;
   const coverage=total===0?100:Math.round((catchable.length/Math.max(1,total))*100);
 
-  // Security health score — severity-weighted, 100=clean, 0=critical
-  const SEV_PENALTY={crit:20,high:12,med:5,low:2};
-  const MAX_PENALTY=Object.values(CONFIGS).reduce((s,c)=>s+(SEV_PENALTY[c.sev]||0),0);
   const penalty=findings.reduce((s,f)=>s+(SEV_PENALTY[f.sev]||0),0);
   const score=findings.length===0?100:Math.max(0,Math.round(100-(penalty/MAX_PENALTY)*95));
 
@@ -922,6 +959,7 @@ function finalizeScan(){
   if(realScanStarted){
     window._waitingForScanModal = true;
     logEv('Waiting for agent scan to complete...','info');
+    showAIGenProgress();
   }else{
     // No real scan was triggered — check status and open demo modal if nothing is running
     fetch('/api/run/status').then(r=>r.json()).then(s=>{
@@ -942,8 +980,9 @@ function logEv(msg,cls='info'){
   div.className=`ev ${cls}`;
   const ts=scanTime.toFixed(1);
   const full=`[${ts}s] ${msg}`;
-  el.prepend(div);
-  if(el.children.length>60)el.lastChild.remove();
+  el.appendChild(div);
+  el.scrollTop=el.scrollHeight;
+  if(el.children.length>60)el.firstChild.remove();
   if(running){
     let i=0;
     const spd=Math.max(4,Math.floor(220/full.length));
@@ -1125,6 +1164,7 @@ function applyLiveResults(data) {
     if (scanTs >= scanStartedAt) {
       window._waitingForScanModal = false;
       realScanStarted = false;
+      hideAIGenProgress();
       rebuildModalFromLive(data);
       setTimeout(()=>document.getElementById('modal').style.display='flex', 800);
     }
@@ -1155,9 +1195,6 @@ function rebuildModalFromLive(data){
     }
   }
 
-  // Score from real findings
-  const SEV_PENALTY={crit:20,high:12,med:5,low:2};
-  const MAX_PENALTY=Object.values(CONFIGS).reduce((s,c)=>s+(SEV_PENALTY[c.sev]||0),0);
   const penalty=realFindings.reduce((s,f)=>s+(SEV_PENALTY[f.sev]||0),0);
   const score=realFindings.length===0?100:Math.max(0,Math.round(100-(penalty/MAX_PENALTY)*95));
 
@@ -1245,9 +1282,7 @@ fetch('/api/settings').then(r=>r.json()).then(d=>{
   }
 }).catch(()=>{});
 
-// Poll every 4 seconds
 setInterval(pollLatest, 4000);
-// Also check immediately on load
 pollLatest();
 
 // ========== INIT ==========
@@ -1496,7 +1531,69 @@ async function testConnection(){
     }
   }catch(e){el.style.color='var(--crit)';el.textContent='✗ Could not reach server.';}
 }
-document.getElementById('settingsPassInput').addEventListener('keydown',e=>{if(e.key==='Enter')unlockSettings()});
+const _spi=document.getElementById('settingsPassInput');if(_spi)_spi.addEventListener('keydown',e=>{if(e.key==='Enter')unlockSettings()});
+
+// ========== AI GENERATION PROGRESS ==========
+let _aiGenTimer=null,_aiGenStart=0;
+const AI_GEN_MSGS=[
+  'Analyzing scan findings...',
+  'Mapping security vulnerabilities...',
+  'Calculating risk scores...',
+  'Generating executive report...',
+  'Building remediation roadmap...',
+  'Estimating cost savings...',
+  'Correlating threat patterns...',
+  'Finalizing AI assessment...',
+];
+function showAIGenProgress(){
+  // display:none on parent cancels child CSS animations per spec;
+  // display:flex restarts them — no manual fill manipulation needed
+  document.getElementById('aiGenOverlay').style.display='flex';
+  _aiGenStart=Date.now();
+  document.getElementById('aiGenBarTrack').classList.remove('ai-pulsing');
+  document.getElementById('aiGenStatus').textContent=AI_GEN_MSGS[0];
+  document.getElementById('aiGenStatus').classList.remove('ai-pulsing');
+  document.getElementById('aiGenEta').textContent='AI is writing the report — est. 60–150s';
+  let mi=0;
+  clearInterval(_aiGenTimer);
+  _aiGenTimer=setInterval(()=>{
+    const elapsed=Math.round((Date.now()-_aiGenStart)/1000);
+    if(elapsed>=150){
+      // Countdown done but report not back — hold in pulsing "finalizing" state
+      document.getElementById('aiGenEta').textContent='Taking longer than usual — still working...';
+      document.getElementById('aiGenStatus').textContent='AI is finalizing your report...';
+      document.getElementById('aiGenStatus').classList.add('ai-pulsing');
+      document.getElementById('aiGenBarTrack').classList.add('ai-pulsing');
+    }else{
+      const rem=150-elapsed;
+      document.getElementById('aiGenEta').textContent=`~${rem}s estimated — AI writing report`;
+      mi=(mi+1)%AI_GEN_MSGS.length;
+      document.getElementById('aiGenStatus').textContent=AI_GEN_MSGS[mi];
+      document.getElementById('aiGenStatus').classList.remove('ai-pulsing');
+      document.getElementById('aiGenBarTrack').classList.remove('ai-pulsing');
+    }
+  },2500);
+}
+function hideAIGenProgress(){
+  clearInterval(_aiGenTimer);
+  document.getElementById('aiGenBarTrack').classList.remove('ai-pulsing');
+  document.getElementById('aiGenStatus').classList.remove('ai-pulsing');
+  document.getElementById('aiGenOverlay').style.display='none';
+}
+
+function showAccelDesc(idxs){
+  const els=document.querySelectorAll('.accel');
+  idxs.forEach(i=>{const d=els[i]&&els[i].querySelector('.accel-desc');if(d)d.style.display='block';});
+}
+
+function toggleSec(hdr){
+  const body=hdr.nextElementSibling;
+  const arrow=hdr.querySelector('.sec-arrow');
+  const opening=body.style.display==='none';
+  body.style.display=opening?'block':'none';
+  arrow.style.transform=opening?'rotate(90deg)':'';
+}
+
 </script>
 
 <!-- PRESENTER BAR -->
