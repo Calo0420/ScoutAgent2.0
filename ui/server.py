@@ -243,6 +243,59 @@ def run_status():
     return JSONResponse({"running": False, "status": "complete" if poll == 0 else "error", "exit_code": poll})
 
 
+
+def _pdf_heat_map(html: str) -> str:
+    """Replace ASCII heat map code block with a color-coded 5x5 HTML table."""
+    import re as _re
+    pattern = _re.compile(r'<pre><code>(IMPACT.*?)</code></pre>', _re.DOTALL | _re.IGNORECASE)
+
+    def _color(lik, imp):
+        s = lik * imp
+        if s >= 20: return '#c0392b', '#fff'
+        if s >= 12: return '#e67e22', '#fff'
+        if s >= 6:  return '#f1c40f', '#333'
+        return '#27ae60', '#fff'
+
+    impact_hdrs  = ['Low (1)', 'Med (2)', 'High (3)', 'V.High (4)', 'Critical (5)']
+    lik_labels   = ['5 — Very High', '4 — High', '3 — Medium', '2 — Low', '1 — Minimal']
+    lik_values   = [5, 4, 3, 2, 1]
+
+    def build(m):
+        data_lines = [l for l in m.group(1).split('\n') if '|' in l]
+        out = ['<table class="heat-map-tbl"><thead><tr>',
+               '<th style="background:#2c3e50;color:#fff;padding:6px 8px;font-size:11px;">Likelihood ↓ / Impact →</th>']
+        for h in impact_hdrs:
+            out.append(f'<th style="background:#2c3e50;color:#fff;padding:6px 8px;font-size:11px;text-align:center;">{h}</th>')
+        out.append('</tr></thead><tbody>')
+        for i, line in enumerate(data_lines[:5]):
+            lik = lik_values[i] if i < 5 else 1
+            cells = [p.strip() for p in line.split('|')[1:6]]
+            while len(cells) < 5: cells.append('')
+            out.append(f'<tr><th style="background:#34495e;color:#fff;padding:6px 8px;font-size:10px;text-align:right;white-space:nowrap;">{lik_labels[i]}</th>')
+            for j, txt in enumerate(cells):
+                bg, fg = _color(lik, j + 1)
+                out.append(f'<td style="background:{bg};color:{fg};text-align:center;padding:7px 5px;font-size:10px;word-break:break-word;">{txt if txt else "&nbsp;"}</td>')
+            out.append('</tr>')
+        out.append('</tbody></table>')
+        return '\n'.join(out)
+
+    return pattern.sub(build, html, count=1)
+
+
+def _pdf_risk_register(html: str) -> str:
+    """Tag the Risk Register table so CSS column widths apply."""
+    return re.sub(
+        r'(Risk Register</h[23]>\s*(?:<p>[^<]*</p>\s*)?)<table(?!\s+class)',
+        r'\1<table class="risk-register"',
+        html, count=1, flags=re.DOTALL | re.IGNORECASE
+    )
+
+
+def _pdf_postprocess(html: str) -> str:
+    html = _pdf_heat_map(html)
+    html = _pdf_risk_register(html)
+    return html
+
 @app.get("/api/report/latest")
 def download_latest_report():
     """Convert latest scan report to PDF and serve for download."""
@@ -265,6 +318,7 @@ def download_latest_report():
 
         md_text = md_file.read_text()
         body_html = markdown.markdown(md_text, extensions=["tables", "fenced_code"])
+        body_html = _pdf_postprocess(body_html)
 
         html = f"""<!DOCTYPE html><html><head><meta charset="utf-8">
         <style>
@@ -284,6 +338,17 @@ def download_latest_report():
                         padding: 4px 12px; color: #828A91; background: #f5f7f9; }}
           hr {{ border: none; border-top: 1px solid #ddd; margin: 20px 0; }}
           @page {{ margin: 2cm; size: A4; }}
+          .heat-map-tbl {{ border-collapse: collapse; width: 100%; margin: 16px 0; }}
+          .heat-map-tbl th, .heat-map-tbl td {{ border: 1px solid #aaa; }}
+          .risk-register {{ table-layout: fixed; width: 100%; }}
+          .risk-register th:nth-child(1), .risk-register td:nth-child(1) {{ width: 4%; }}
+          .risk-register th:nth-child(2), .risk-register td:nth-child(2) {{ width: 40%; word-break: break-word; overflow-wrap: break-word; }}
+          .risk-register th:nth-child(3), .risk-register td:nth-child(3) {{ width: 13%; word-break: break-word; }}
+          .risk-register th:nth-child(4), .risk-register td:nth-child(4) {{ width: 9%; text-align: center; }}
+          .risk-register th:nth-child(5), .risk-register td:nth-child(5) {{ width: 9%; text-align: center; }}
+          .risk-register th:nth-child(6), .risk-register td:nth-child(6) {{ width: 9%; text-align: center; }}
+          .risk-register th:nth-child(7), .risk-register td:nth-child(7) {{ width: 16%; text-align: center; }}
+          td code {{ white-space: normal; word-break: break-all; }}
         </style></head><body>{body_html}</body></html>"""
 
         pdf_bytes = HTML(string=html).write_pdf()
