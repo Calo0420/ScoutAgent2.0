@@ -108,9 +108,32 @@ def assess_ai_stack(host: str, username: str, key_path: str = None, password: st
         if api_ports:
             security_gaps.append(f"Potential AI API endpoints exposed without confirmed auth: {api_ports}")
 
-        key_leak = _ssh_run(client, "grep -rl 'OPENAI_API_KEY\\|ANTHROPIC_API_KEY\\|sk-' /opt /home --include='*.env' --include='*.py' --include='*.sh' 2>/dev/null | head -5")
-        if key_leak:
-            security_gaps.append(f"Potential hardcoded API keys found in: {key_leak}")
+        # Detect credential files by EXISTENCE only (no content read) — permitted
+        # under the data classification policy. We deliberately do NOT grep their
+        # contents; reading a credential file is gated by Gatekeeper below.
+        cred_hits = _ssh_run(client, "find /opt /home /root /etc -maxdepth 6 -type f \\( -name '*.env' -o -name '*.pem' -o -name '*.key' -o -name 'id_rsa' -o -name 'credentials' \\) 2>/dev/null | head -10")
+        cred_files = [f.strip() for f in cred_hits.splitlines() if f.strip()]
+        if cred_files:
+            # Per data classification policy (CIS Control 3 / NIST 800-53 AC-3),
+            # reading a credential file's CONTENTS is gated by Gatekeeper.
+            # Detection is allowed; the read is requested and expected to be blocked.
+            try:
+                from gatekeeper_client import request_access
+                blocked = [cf for cf in cred_files if not request_access(cf, action="read")]
+            except Exception:
+                blocked = []
+            if blocked:
+                security_gaps.append(
+                    f"Credential files DETECTED ({len(cred_files)}) and flagged as risk: "
+                    f"{', '.join(cred_files)}. Content read BLOCKED by Gatekeeper per data "
+                    f"classification policy (CIS Control 3 / NIST 800-53 AC-3) — existence "
+                    f"reported, contents NOT accessed."
+                )
+            else:
+                security_gaps.append(
+                    f"Credential files detected ({len(cred_files)}): {', '.join(cred_files)} "
+                    f"— flagged as risk (contents not read)."
+                )
 
     finally:
         client.close()

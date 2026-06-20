@@ -36,3 +36,5 @@ build/
 
 # Credentials doc — never commit
 CREDENTIALS.md
+*.bak
+*.bak-*

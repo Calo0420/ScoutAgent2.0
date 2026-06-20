@@ -19,7 +19,7 @@ from datetime import datetime
 from pathlib import Path
 
 import anthropic
-from gatekeeper_client import request_access
+from gatekeeper_client import request_access, register_session, close_session
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -706,5 +706,16 @@ if __name__ == "__main__":
     parts.append("After all scans, generate the full executive report.")
     request = " ".join(parts)
 
+    # ── Gatekeeper trust gateway — full session lifecycle (opt-in) ──────────────
+    # GATEKEEPER_SESSION=true registers a session with Gatekeeper and BLOCKS for
+    # human approval before scanning, gates every tool call, and produces a signed
+    # audit report on exit. Default (unset/false) = no session, scan runs as before.
+    gk_session = os.getenv("GATEKEEPER_SESSION", "false").lower() == "true"
+    if gk_session:
+        register_session()   # registers with Gatekeeper, waits for human approval
+
     report, findings = run_scout(request, client_name=args.client)
     save_report(report, args.client, findings)
+
+    if gk_session:
+        close_session()      # triggers Gatekeeper signed audit report

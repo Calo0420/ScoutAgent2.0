@@ -83,7 +83,7 @@ def request_access(resource: str, action: str = "execute") -> bool:
             "token":      _token,
             "resource":   resource,
             "action":     action,
-        }, timeout=5)
+        }, timeout=30)  # generous: a blocked attempt triggers Bedrock analysis server-side
         resp.raise_for_status()
         data    = resp.json()
         allowed = data.get("allowed", False)
