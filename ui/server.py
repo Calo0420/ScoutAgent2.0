@@ -6,6 +6,7 @@ Run: uvicorn server:app --host 0.0.0.0 --port 7070
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -246,8 +247,7 @@ def run_status():
 
 def _pdf_heat_map(html: str) -> str:
     """Replace ASCII heat map code block with a color-coded 5x5 HTML table."""
-    import re as _re
-    pattern = _re.compile(r'<pre><code>(IMPACT.*?)</code></pre>', _re.DOTALL | _re.IGNORECASE)
+    pattern = re.compile(r'<pre><code>(IMPACT.*?)</code></pre>', re.DOTALL | re.IGNORECASE)
 
     def _color(lik, imp):
         s = lik * imp
@@ -291,7 +291,36 @@ def _pdf_risk_register(html: str) -> str:
     )
 
 
+
+def _pdf_normalize_emoji(html: str) -> str:
+    """Replace emoji with DejaVu-renderable HTML spans (EC2 has no emoji font)."""
+    _EMOJI = [
+        ('🔴', '<span style="color:#c0392b;font-weight:bold">●</span>'),
+        ('🟠', '<span style="color:#e67e22;font-weight:bold">●</span>'),
+        ('🟡', '<span style="color:#e6b400;font-weight:bold">●</span>'),
+        ('🟢', '<span style="color:#27ae60;font-weight:bold">●</span>'),
+        ('🟣', '<span style="color:#8e44ad;font-weight:bold">●</span>'),
+        ('🔵', '<span style="color:#2980b9;font-weight:bold">●</span>'),
+        ('✅',     '<span style="color:#27ae60;font-weight:bold">✓</span>'),
+        ('❌',     '<span style="color:#c0392b;font-weight:bold">✗</span>'),
+        ('⚠️', '<span style="color:#e67e22;font-weight:bold">▲</span>'),
+        ('⚠',     '<span style="color:#e67e22;font-weight:bold">▲</span>'),
+        ('🌐', '<span style="color:#2980b9">●</span>'),
+        ('📌', '►'),
+        ('🗓️', ''), ('🗓', ''),
+        ('🛡️', ''), ('🛡', ''),
+        ('🔒', ''), ('🔧', ''), ('🧠', ''),
+        ('📊', ''), ('📋', ''), ('📱', ''),
+        ('🤖', ''), ('🤝', ''), ('💰', ''),
+        ('🖥️', ''), ('🖥', ''),
+        ('🎯', ''), ('⭐', ''),
+    ]
+    for emoji, repl in _EMOJI:
+        html = html.replace(emoji, repl)
+    return html
+
 def _pdf_postprocess(html: str) -> str:
+    html = _pdf_normalize_emoji(html)
     html = _pdf_heat_map(html)
     html = _pdf_risk_register(html)
     return html
@@ -329,7 +358,7 @@ def download_latest_report():
           h3 {{ color: #828A91; font-size: 14px; }}
           table {{ border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 12px; }}
           th {{ background: #44546A; color: #fff; padding: 6px 10px; text-align: left; }}
-          td {{ padding: 5px 10px; border-bottom: 1px solid #ddd; }}
+          td {{ padding: 5px 10px; border-bottom: 1px solid #ddd; word-break: break-word; overflow-wrap: break-word; }}
           tr:nth-child(even) {{ background: #f5f7f9; }}
           code, pre {{ background: #f0f4f8; padding: 2px 6px; border-radius: 3px;
                        font-family: monospace; font-size: 11px; }}
@@ -345,9 +374,9 @@ def download_latest_report():
           .risk-register th:nth-child(2), .risk-register td:nth-child(2) {{ width: 40%; word-break: break-word; overflow-wrap: break-word; }}
           .risk-register th:nth-child(3), .risk-register td:nth-child(3) {{ width: 13%; word-break: break-word; }}
           .risk-register th:nth-child(4), .risk-register td:nth-child(4) {{ width: 9%; text-align: center; }}
-          .risk-register th:nth-child(5), .risk-register td:nth-child(5) {{ width: 9%; text-align: center; }}
+          .risk-register th:nth-child(5), .risk-register td:nth-child(5) {{ width: 9%; text-align: center; word-break: break-word; }}
           .risk-register th:nth-child(6), .risk-register td:nth-child(6) {{ width: 9%; text-align: center; }}
-          .risk-register th:nth-child(7), .risk-register td:nth-child(7) {{ width: 16%; text-align: center; }}
+          .risk-register th:nth-child(7), .risk-register td:nth-child(7) {{ width: 16%; text-align: left; word-break: break-word; overflow-wrap: break-word; }}
           td code {{ white-space: normal; word-break: break-all; }}
         </style></head><body>{body_html}</body></html>"""
 
