@@ -65,6 +65,12 @@ canvas{display:block;position:relative;z-index:1}
 /* Event log */
 .event-log{width:280px;border-left:1px solid var(--border);padding:4px 0;overflow:hidden;display:flex;flex-direction:column}
 .ev-title{font-size:9px;letter-spacing:2.5px;color:var(--accent);font-family:'Share Tech Mono',monospace;padding:4px 8px 3px}
+.gk-status{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:5px;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;margin-bottom:6px;border:1px solid #1E3050;color:#64748B}
+.gk-dot{width:6px;height:6px;border-radius:50%;background:#64748B;flex:0 0 auto}
+.gk-pending{color:#F59E0B;border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.08)}.gk-pending .gk-dot{background:#F59E0B;box-shadow:0 0 6px #F59E0B}
+.gk-active{color:#22C55E;border-color:rgba(34,197,94,.4);background:rgba(34,197,94,.08)}.gk-active .gk-dot{background:#22C55E;box-shadow:0 0 6px #22C55E}
+.gk-closed{color:#94A3B8}.gk-closed .gk-dot{background:#94A3B8}
+.gk-session{font-family:'Share Tech Mono',monospace;font-size:9px;color:#64748B;text-align:center;margin-bottom:6px;letter-spacing:1px;min-height:11px}
 .ev-list{flex:1;overflow-y:auto;padding:0 2px}
 .ev{font-size:10px;padding:2px 6px;border-left:2px solid var(--border);margin-bottom:2px;font-family:'Share Tech Mono',monospace;opacity:0;animation:evIn .25s forwards}
 @keyframes evIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
@@ -302,6 +308,8 @@ canvas{display:block;position:relative;z-index:1}
     <div style="border-top:1px solid var(--border)">
       <div class="phead">&#9670; Controls</div>
       <div style="padding:8px">
+        <div id="gkStatus" class="gk-status gk-idle"><span class="gk-dot"></span><span id="gkStatusText">GATEKEEPER · STANDBY</span></div>
+        <div id="gkSession" class="gk-session"></div>
         <button class="run-btn" id="runBtn">&#9654; RUN SCAN</button>
         <div style="margin-top:8px;text-align:center">
           <div class="score-lbl">SECURITY SCORE</div>
@@ -958,18 +966,18 @@ function finalizeScan(){
   // Never open the modal with demo-only data while a scan is running or pending.
   if(realScanStarted){
     window._waitingForScanModal = true;
-    logEv('Waiting for agent scan to complete...','info');
-    showAIGenProgress();
+    if(window._gkBlocked){ showAuthRequired(_gkSession); }
+    else { logEv('Waiting for agent scan to complete...','info'); showAIGenProgress(); }
   }else{
     // No real scan was triggered — check status and open demo modal if nothing is running
     fetch('/api/run/status').then(r=>r.json()).then(s=>{
-      if(!s.running){
+      if(!s.running && !window._gkBlocked){
         setTimeout(()=>document.getElementById('modal').style.display='flex',600);
       }else{
         window._waitingForScanModal = true;
       }
     }).catch(()=>{
-      setTimeout(()=>document.getElementById('modal').style.display='flex',600);
+      if(!window._gkBlocked) setTimeout(()=>document.getElementById('modal').style.display='flex',600);
     });
   }
 }
@@ -1159,7 +1167,7 @@ function applyLiveResults(data) {
 
   // If the UI animation finished while the scan was still running, open the modal now.
   // Guard: only open for scans that completed AFTER this session started (reject stale data).
-  if (data.status === 'complete' && window._waitingForScanModal) {
+  if (data.status === 'complete' && window._waitingForScanModal && !window._gkBlocked) {
     const scanTs = parseScanTs(data.scanned_at);
     if (scanTs >= scanStartedAt) {
       window._waitingForScanModal = false;
@@ -1287,27 +1295,36 @@ pollLatest();
 
 // ========== GATEKEEPER LIVE SYNC ==========
 let _gkSession = null, _gkStatus = null;
+window._gkBlocked = false;
+function _setGk(cls, text, sid){
+  const b=document.getElementById('gkStatus'), t=document.getElementById('gkStatusText'), e=document.getElementById('gkSession');
+  if(!b) return;
+  b.className='gk-status '+cls; t.textContent=text; e.textContent = sid ? ('Session '+sid) : '';
+}
 async function pollGatekeeper(){
   try{
     const g = await (await fetch('/api/gatekeeper',{cache:'no-store'})).json();
-    if(!g || g.enabled === false) return;
+    if(!g || g.enabled === false){ _setGk('gk-idle','GATEKEEPER \u00b7 STANDBY',''); window._gkBlocked=false; return; }
     const sid = g.session_id || '';
+    window._gkBlocked = (g.status === 'pending_approval');
+    if(g.status === 'pending_approval') _setGk('gk-pending','GATEKEEPER \u00b7 PENDING AUTHORIZATION', sid);
+    else if(g.status === 'active') _setGk('gk-active','GATEKEEPER \u00b7 SYNCHRONIZED & READY', sid);
+    else if(g.status === 'closed') _setGk('gk-closed','GATEKEEPER \u00b7 AUDIT COMPLETE', sid);
     if(g.status === 'pending_approval'){
       if(_gkSession !== sid){
         _gkSession = sid; _gkStatus = 'pending_approval';
-        logEv('PENDING GATEKEEPER AUTHORIZATION — session '+sid,'med');
-        logEv('Waiting for operator to authorize in Gatekeeper…','med');
+        logEv('PENDING GATEKEEPER AUTHORIZATION \u2014 session '+sid,'med');
+        logEv('Waiting for operator to authorize in Gatekeeper\u2026','med');
       }
+      if(realScanStarted || window._waitingForScanModal) showAuthRequired(sid);
       return;
     }
     if(sid === _gkSession && g.status !== _gkStatus){
       _gkStatus = g.status;
       if(g.status === 'active'){
-        logEv('AUTHORIZED BY GATEKEEPER — scan proceeding (session '+sid+')','ok');
-      }else if(g.status === 'closed'){
-        logEv('Gatekeeper session closed — signed audit report generated','ok');
-        _gkSession = null;
-      }
+        logEv('AUTHORIZED BY GATEKEEPER \u2014 scan proceeding (session '+sid+')','ok');
+        if(realScanStarted || window._waitingForScanModal) showAIGenProgress();
+      } else if(g.status === 'closed'){ logEv('Gatekeeper session closed \u2014 signed audit report generated','ok'); _gkSession = null; }
     }
   }catch(e){}
 }
@@ -1574,10 +1591,27 @@ const AI_GEN_MSGS=[
   'Correlating threat patterns...',
   'Finalizing AI assessment...',
 ];
+function showAuthRequired(sid){
+  clearInterval(_aiGenTimer);
+  const ov=document.getElementById('aiGenOverlay'); if(!ov) return;
+  ov.style.display='flex';
+  const title=document.getElementById('aiGenTitle');
+  title.innerHTML='&#9888; AUTHORIZATION REQUIRED';
+  title.style.color='#EF4444';
+  document.getElementById('aiGenBox').style.borderColor='#EF4444';
+  const st=document.getElementById('aiGenStatus');
+  st.textContent='SCAN BLOCKED \u2014 NOT AUTHORIZED';
+  st.classList.add('ai-pulsing');
+  document.getElementById('aiGenEta').textContent='Click AUTHORIZE in Gatekeeper to start the scan'+(sid?(' \u00b7 session '+sid):'');
+  document.getElementById('aiGenBarTrack').classList.add('ai-pulsing');
+}
 function showAIGenProgress(){
   // display:none on parent cancels child CSS animations per spec;
   // display:flex restarts them — no manual fill manipulation needed
   document.getElementById('aiGenOverlay').style.display='flex';
+  document.getElementById('aiGenTitle').innerHTML='&#9670; AI REPORT GENERATING';
+  document.getElementById('aiGenTitle').style.color='';
+  document.getElementById('aiGenBox').style.borderColor='';
   _aiGenStart=Date.now();
   document.getElementById('aiGenBarTrack').classList.remove('ai-pulsing');
   document.getElementById('aiGenStatus').textContent=AI_GEN_MSGS[0];
