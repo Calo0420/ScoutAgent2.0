@@ -227,6 +227,9 @@ def run_scan():
         env_vars["DEPLOY_MODE"]       = env.get("DEPLOY_MODE", "claude")
         env_vars["VENICE_API_KEY"]    = env.get("VENICE_API_KEY", "")
         env_vars["VENICE_MODEL"]      = env.get("VENICE_MODEL", "llama-3.3-70b")
+        env_vars["GATEKEEPER_ENABLED"] = env.get("GATEKEEPER_ENABLED", "true")
+        env_vars["GATEKEEPER_URL"]     = env.get("GATEKEEPER_URL", "http://localhost:8001")
+        env_vars["GATEKEEPER_SESSION"] = env.get("GATEKEEPER_SESSION", "false")
 
         _scan_proc = subprocess.Popen(cmd, cwd=str(ROOT_DIR), env=env_vars)
 
@@ -433,6 +436,18 @@ def manual_client_it():
 def manual_sales():
     """Serves the Sales Playbook manual."""
     return FileResponse(DOCS_DIR / "manual_sales.html", media_type="text/html")
+
+
+@app.get("/api/gatekeeper")
+def gatekeeper_status():
+    """Live Gatekeeper session state for the Scout UI sync indicator."""
+    p = ROOT_DIR / "reports" / "gatekeeper_state.json"
+    if not p.exists():
+        return JSONResponse({"enabled": False})
+    try:
+        return JSONResponse(json.loads(p.read_text()))
+    except Exception:
+        return JSONResponse({"enabled": False})
 
 
 @app.get("/")

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SCOUTER 2.0 — EVERFORTH INFRASTRUCTURE ASSESSMENT</title>
+<title>ScoutAgent — EVERFORTH INFRASTRUCTURE ASSESSMENT</title>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -165,7 +165,7 @@ canvas{display:block;position:relative;z-index:1}
 <!-- HEADER -->
 <header style="height:36px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0">
   <div style="display:flex;align-items:center;gap:10px">
-    <span class="mono" style="color:var(--accent);font-size:11px;letter-spacing:2px">SCOUTER 2.0</span>
+    <span class="mono" style="color:var(--accent);font-size:11px;letter-spacing:2px">ScoutAgent</span>
     <span class="mono" style="color:var(--muted);font-size:10px">// EVERFORTH INFRASTRUCTURE ASSESSMENT</span>
     <span class="mono" id="liveTag" style="color:var(--muted);font-size:10px;border:1px solid var(--border);padding:1px 6px;border-radius:2px">DEMO</span>
   </div>
@@ -1284,6 +1284,35 @@ fetch('/api/settings').then(r=>r.json()).then(d=>{
 
 setInterval(pollLatest, 4000);
 pollLatest();
+
+// ========== GATEKEEPER LIVE SYNC ==========
+let _gkSession = null, _gkStatus = null;
+async function pollGatekeeper(){
+  try{
+    const g = await (await fetch('/api/gatekeeper',{cache:'no-store'})).json();
+    if(!g || g.enabled === false) return;
+    const sid = g.session_id || '';
+    if(g.status === 'pending_approval'){
+      if(_gkSession !== sid){
+        _gkSession = sid; _gkStatus = 'pending_approval';
+        logEv('PENDING GATEKEEPER AUTHORIZATION — session '+sid,'med');
+        logEv('Waiting for operator to authorize in Gatekeeper…','med');
+      }
+      return;
+    }
+    if(sid === _gkSession && g.status !== _gkStatus){
+      _gkStatus = g.status;
+      if(g.status === 'active'){
+        logEv('AUTHORIZED BY GATEKEEPER — scan proceeding (session '+sid+')','ok');
+      }else if(g.status === 'closed'){
+        logEv('Gatekeeper session closed — signed audit report generated','ok');
+        _gkSession = null;
+      }
+    }
+  }catch(e){}
+}
+setInterval(pollGatekeeper, 2000);
+pollGatekeeper();
 
 // ========== INIT ==========
 layoutNodes();

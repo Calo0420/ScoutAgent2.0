@@ -714,8 +714,9 @@ if __name__ == "__main__":
     if gk_session:
         register_session()   # registers with Gatekeeper, waits for human approval
 
-    report, findings = run_scout(request, client_name=args.client)
-    save_report(report, args.client, findings)
-
-    if gk_session:
-        close_session()      # triggers Gatekeeper signed audit report
+    try:
+        report, findings = run_scout(request, client_name=args.client)
+        save_report(report, args.client, findings)
+    finally:
+        if gk_session:
+            close_session()  # always close so sessions never orphan as active

@@ -6,6 +6,7 @@ Handles all communication between ScoutAgent and the Gatekeeper AI Trust Gateway
 
 import os
 import time
+import json
 
 import requests
 
@@ -30,6 +31,21 @@ REQUESTED_SCOPE = [
 _session_id = None
 _token      = None
 
+_STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "reports", "gatekeeper_state.json")
+
+
+def _write_state(status: str) -> None:
+    """Write a small status file so the Scout UI can show live Gatekeeper sync."""
+    try:
+        os.makedirs(os.path.dirname(_STATE_FILE), exist_ok=True)
+        with open(_STATE_FILE, "w") as f:
+            json.dump({"enabled": True, "status": status,
+                       "session_id": _session_id, "url": GATEKEEPER_URL,
+                       "ts": time.time()}, f)
+    except Exception:
+        pass
+
 
 def register_session() -> str:
     """
@@ -52,6 +68,7 @@ def register_session() -> str:
     resp.raise_for_status()
     data        = resp.json()
     _session_id = data["session_id"]
+    _write_state("pending_approval")
 
     print(f"[Gatekeeper] Session created: {_session_id}")
     print(f"[Gatekeeper] Waiting for human approval...")
@@ -65,6 +82,7 @@ def register_session() -> str:
             if status_data.get("status") == "active":
                 _token = status_data.get("token", f"GK-{_session_id}-TOKEN")
                 print(f"[Gatekeeper] Session approved! Token: {_token}")
+                _write_state("active")
                 return _session_id
         time.sleep(2)
 
@@ -122,6 +140,7 @@ def close_session() -> dict:
         print(f"[Gatekeeper] Total requests: {data.get('total_requests', 0)}")
         print(f"[Gatekeeper] Blocked: {data.get('blocked', 0)}")
         print(f"[Gatekeeper] Audit report: {GATEKEEPER_URL}{data.get('pdf_url', '')}")
+        _write_state("closed")
         return data
     except Exception as e:
         print(f"[Gatekeeper] Could not close session: {e}")
