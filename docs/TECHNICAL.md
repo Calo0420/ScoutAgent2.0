@@ -20,6 +20,8 @@ CLI / API request
        ├── scan_linux_environment()    SSH read-only
        ├── check_cis_benchmarks()      SSH read-only
        ├── audit_automation_maturity() SSH read-only
+       ├── scan_windows_environment()  WinRM read-only
+       ├── check_windows_security()    WinRM read-only
        ├── scan_vmware_environment()   pyVmomi read-only
        └── scan_network_health()       nmap passive
        ↓
@@ -29,6 +31,23 @@ CLI / API request
 ```
 
 Claude acts as the routing brain. It receives the user request, decides which tools are applicable based on what credentials were provided, calls them in sequence, accumulates findings, and then generates the structured report. No hardcoded scan order — the agent reasons about it.
+
+### Trust Gateway (Gatekeeper)
+
+In governed mode (`GATEKEEPER_SESSION=true`), every tool call and file access passes through **Gatekeeper**, a separate AI trust-gateway service, before it executes:
+
+```
+agent.py --> gatekeeper_client --HTTP--> Gatekeeper (:8001)
+                                          |- session/start   (operator must authorize)
+                                          |- access check    (allow / block per policy)
+                                          |- session/exit    (signed audit report)
+```
+
+- The scan **blocks for human authorization** before any tool runs.
+- Configuration and posture reads are **allowed**; reads of secret content (`.env`, private keys, credential stores) are **blocked and logged**.
+- On exit, Gatekeeper emits a signed compliance report with a SHA-256 audit hash that can be independently re-verified (`verify_audit.py`).
+
+Scout and Gatekeeper are **independent services** — Gatekeeper can govern any AI agent, not just Scout.
 
 ---
 
@@ -207,6 +226,39 @@ Risk rating: CRITICAL (>10 findings) / HIGH (>5) / MEDIUM (>0) / LOW
 
 ---
 
+### scan_windows_environment
+**Accelerator:** A1 / A2 — Linux & Windows Modernization
+**Transport:** WinRM via pywinrm (ports 5985/5986) — auto-tries NTLM → Negotiate → Basic
+**Access level:** Read-only (CIM/WMI queries, no changes)
+
+Collects:
+- OS version, build, edition, install date, last boot
+- CPU, RAM, and disk inventory
+- Installed roles/features and running services
+- Local users and Administrators group membership
+- Installed hotfixes / patch level (`Get-HotFix`)
+- Pending-reboot state
+
+**Required inputs:** `host`, `username`, `password`
+
+---
+
+### check_windows_security
+**Accelerator:** A2 — Windows Security Posture
+**Transport:** WinRM via pywinrm — auto-tries NTLM → Negotiate → Basic
+**Access level:** Read-only
+
+Checks:
+- Windows Firewall profile state
+- RDP exposure and Network Level Authentication (NLA)
+- SMBv1 status, password and lockout policy
+- Microsoft Defender status and signature age
+- Audit/logging policy configuration
+
+**Required inputs:** `host`, `username`, `password`
+
+---
+
 ## Error Handling
 
 If a tool fails (host unreachable, auth failure, timeout), the error is captured in `failed_tools` and the agent continues with remaining scans. The final report includes a section noting which tools could not connect and why.
@@ -269,6 +321,8 @@ nmap                 # System package (included in Docker image)
 - No findings stored server-side — output is a local Markdown file
 - In Bedrock mode: zero data reaches Anthropic infrastructure
 - In Ollama mode: zero data leaves the physical facility
+- **Gatekeeper governance** (when enabled): every agent action requires operator authorization; reads of secret content are blocked and logged
+- **Tamper-evident audit**: each governed session produces a signed report with a SHA-256 hash that can be independently re-verified
 
 ---
 

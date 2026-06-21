@@ -351,7 +351,7 @@ TOOLS = [
                         "Required sections the report MUST include in this exact order: "
                         "1. Executive Summary (situation, what we found, top 3 recommendations) | "
                         "2. Server Inventory (hostname, OS, CPU, RAM, disk, role, environment, end-of-support date) | "
-                        "3. Risk Map (risk heat map with likelihood/impact rating per finding, risk register table) | "
+                        "3. Risk Map - render the heat map as a MARKDOWN TABLE (rows = Likelihood High/Medium/Low; columns = Impact Low/Medium/High/Critical; each cell lists the finding IDs in that bucket with a severity dot). Do NOT use ASCII art or code fences. Follow it with a risk register markdown table (columns: #, Finding, Host, Likelihood, Impact, Combined Rating, CIS Control Failed). | "
                         "4. Savings Estimate (annual savings, 3-year TCO comparison, break-even, confidence level) | "
                         "5. License Cost Comparison (current vs Linux/alternative, per-server cost detail) | "
                         "6. Migration Roadmap (30/60/90-day phases, scope per phase, out-of-scope servers, success criteria) | "

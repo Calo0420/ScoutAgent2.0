@@ -192,6 +192,8 @@ For the roadmap:
 **Answer:**
 
 > *"That's exactly the right question to ask. ScoutAgent gives you four deployment options precisely because of this concern. The default mode sends findings to the Anthropic API over encrypted HTTPS — similar to how you'd use any secure cloud service. But if you have data residency requirements or a compliance program that doesn't allow data leaving your environment, we run it in AWS Bedrock mode, where everything stays within your own AWS account. Nothing leaves your cloud. And if you're in an air-gapped environment with no internet access at all, we have an on-premises mode using a local AI model. The assessment runs completely inside your four walls. We also offer a fourth option through Venice AI if you prefer open-source models without an Anthropic account. You pick the mode that fits your security policy."*
+>
+> **The governance layer most assessment tools don’t have:** every action the agent takes passes through Gatekeeper, our AI trust gateway. You authorize the session before it reads anything. It is allowed to see configuration and posture — but the moment it reaches for an actual secret — a `.env` file or a private key — Gatekeeper blocks the read and logs the attempt. You get a signed audit trail of every access, allowed or blocked, sealed with a SHA-256 hash you can verify yourself. “Is our data safe” stops being a promise and becomes something you can prove.
 
 ---
 
@@ -240,6 +242,8 @@ If they ask about specific Linux distributions:
 **Answer:**
 
 > *"Findings go only where you tell them to go. The report is a local file — it never gets transmitted to Everforth's servers or anywhere else automatically. In Bedrock or Ollama mode, it doesn't even leave your environment. Our engagement model treats assessment output as client confidential. We don't aggregate findings across clients. If you want to run the assessment and have only your internal team see the output, that's completely your call."*
+>
+> **And the agent never reads the contents in the first place:** Gatekeeper detects that a credential file or private key exists — worth knowing — but blocks the agent the instant it tries to open one, and logs every attempt. In a recent live assessment it caught the agent reaching for ten credential files and stopped all ten. The things you do not want exposed are never read, and you hold a tamper-evident record proving it.
 
 ---
 

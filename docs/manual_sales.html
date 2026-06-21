@@ -848,6 +848,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
       <div class="objection-q">"Is our data safe?"</div>
       <div class="objection-a">
         <p>That's exactly the right question to ask. ScoutAgent gives you three deployment options precisely because of this concern. The default mode sends findings to the Anthropic API over encrypted HTTPS — similar to how you'd use any secure cloud service. But if you have data residency requirements or a compliance program that doesn't allow data leaving your environment, we run it in AWS Bedrock mode, where everything stays within your own AWS account. Nothing leaves your cloud. And if you're in an air-gapped environment with no internet access at all, we have an on-premises mode using a local AI model. The assessment runs completely inside your four walls. You pick the mode that fits your security policy.</p>
+        <p><strong>And a governance layer most assessment tools don’t have:</strong> every action the agent takes passes through Gatekeeper, our AI trust gateway. You authorize the session before it reads anything. It is allowed to see configuration and posture — but the moment it reaches for an actual secret, a <code>.env</code> file or a private key, Gatekeeper blocks the read and logs the attempt. You receive a signed audit trail of every access, allowed or blocked, sealed with a SHA-256 hash you can verify yourself. “Is our data safe” stops being a promise and becomes something you can prove.</p>
       </div>
     </div>
 
@@ -878,6 +879,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
       <div class="objection-q">"This sounds like it could find things we don't want exposed — what happens to those findings?"</div>
       <div class="objection-a">
         <p>Findings go only where you tell them to go. The report is a local file — it never gets transmitted to Everforth's servers or anywhere else automatically. In Bedrock or Ollama mode, it doesn't even leave your environment. Our engagement model treats assessment output as client confidential. We don't aggregate findings across clients. If you want to run the assessment and have only your internal team see the output, that's completely your call.</p>
+        <p><strong>And the agent never reads the contents in the first place:</strong> Gatekeeper detects that a credential file or private key exists — worth knowing — but blocks the agent the instant it tries to open one, and logs every attempt. In a recent live assessment it caught the agent reaching for ten credential files and stopped all ten. The things you do not want exposed are never read, and you hold a tamper-evident record proving it.</p>
       </div>
     </div>
   </section>
@@ -962,7 +964,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
         <table>
           <thead><tr><th>Objection</th><th>Your One-Liner</th></tr></thead>
           <tbody>
-            <tr><td>"Is our data safe?"</td><td>"Three modes: cloud API, your AWS, or fully on-prem. You pick based on your policy."</td></tr>
+            <tr><td>"Is our data safe?"</td><td>"Gatekeeper authorizes and logs every access, blocks reading any secret, and signs a verifiable audit trail — plus three deployment modes (cloud, your AWS, or on-prem) for data residency."</td></tr>
             <tr><td>"We already have a scanner"</td><td>"Scanners find CVEs. ScoutAgent produces a board-ready business document in 10 minutes."</td></tr>
             <tr><td>"What does implementation look like?"</td><td>"Read-only SSH account, 10 minutes, no changes to any system."</td></tr>
             <tr><td>"Can it run in our environment?"</td><td>"Yes — including air-gapped. We meet your security policy, not the other way around."</td></tr>

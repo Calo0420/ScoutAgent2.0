@@ -288,7 +288,7 @@ def _pdf_heat_map(html: str) -> str:
 def _pdf_risk_register(html: str) -> str:
     """Tag the Risk Register table so CSS column widths apply."""
     return re.sub(
-        r'(Risk Register</h[23]>\s*(?:<p>[^<]*</p>\s*)?)<table(?!\s+class)',
+        r'(Risk Register</h[23]>.*?)<table(?!\s+class)',
         r'\1<table class="risk-register"',
         html, count=1, flags=re.DOTALL | re.IGNORECASE
     )
@@ -298,6 +298,7 @@ def _pdf_risk_register(html: str) -> str:
 def _pdf_normalize_emoji(html: str) -> str:
     """Replace emoji with DejaVu-renderable HTML spans (EC2 has no emoji font)."""
     _EMOJI = [
+        ('🚫', '<span style="color:#c0392b;font-weight:bold">✗</span>'),
         ('🔴', '<span style="color:#c0392b;font-weight:bold">●</span>'),
         ('🟠', '<span style="color:#e67e22;font-weight:bold">●</span>'),
         ('🟡', '<span style="color:#e6b400;font-weight:bold">●</span>'),
@@ -365,7 +366,7 @@ def download_latest_report():
           tr:nth-child(even) {{ background: #f5f7f9; }}
           code, pre {{ background: #f0f4f8; padding: 2px 6px; border-radius: 3px;
                        font-family: monospace; font-size: 11px; }}
-          pre {{ padding: 10px; overflow-x: auto; }}
+          pre {{ padding: 10px; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; }}
           blockquote {{ border-left: 3px solid #828A91; margin: 8px 0;
                         padding: 4px 12px; color: #828A91; background: #f5f7f9; }}
           hr {{ border: none; border-top: 1px solid #ddd; margin: 20px 0; }}
@@ -381,9 +382,11 @@ def download_latest_report():
           .risk-register th:nth-child(6), .risk-register td:nth-child(6) {{ width: 9%; text-align: center; }}
           .risk-register th:nth-child(7), .risk-register td:nth-child(7) {{ width: 16%; text-align: left; word-break: break-word; overflow-wrap: break-word; }}
           td code {{ white-space: normal; word-break: break-all; }}
-        </style></head><body>{body_html}</body></html>"""
+        </style></head><body>
+        <img src="everforth_logo.png" style="height:46px;display:block;margin:0 0 18px 0"/>
+        {body_html}</body></html>"""
 
-        pdf_bytes = HTML(string=html).write_pdf()
+        pdf_bytes = HTML(string=html, base_url=UI_DIR.as_uri() + "/").write_pdf()
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",

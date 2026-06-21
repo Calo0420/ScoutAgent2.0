@@ -740,6 +740,7 @@ function startScan(){
   // Trigger real agent scan in background — reports/latest.json will be updated on completion
   realScanStarted = false;
   scanStartedAt = Date.now();
+  window._scanAuthorized = false;  // hold the visual sweep until Gatekeeper authorizes (or reports no gate)
   fetch('/api/run',{method:'POST'})
     .then(r=>r.json())
     .then(d=>{
@@ -778,6 +779,13 @@ const MOVE_DUR=0.6, CHECK_INTERVAL=0.4;
 
 function update(dt){
   if(!running) return;
+  // Freeze the visual sweep while a real scan is awaiting Gatekeeper authorization.
+  // The real agent is blocked in register_session() until the operator authorizes,
+  // so the on-screen scan must wait too - it must never run ahead of the gated engine.
+  if(realScanStarted && !window._scanAuthorized){
+    document.getElementById("hudScan").textContent="AWAITING AUTHORIZATION";
+    return;
+  }
   scanTime+=dt;
   document.getElementById('hudTime').textContent=`T+${scanTime.toFixed(1)}s`;
   document.getElementById('sTime').textContent=`${scanTime.toFixed(1)}s`;
@@ -1296,6 +1304,7 @@ pollLatest();
 // ========== GATEKEEPER LIVE SYNC ==========
 let _gkSession = null, _gkStatus = null;
 window._gkBlocked = false;
+window._scanAuthorized = true;  // false while a real scan awaits Gatekeeper authorization - freezes the visual sweep so it never runs ahead of the gated agent
 function _setGk(cls, text, sid){
   const b=document.getElementById('gkStatus'), t=document.getElementById('gkStatusText'), e=document.getElementById('gkSession');
   if(!b) return;
@@ -1304,9 +1313,10 @@ function _setGk(cls, text, sid){
 async function pollGatekeeper(){
   try{
     const g = await (await fetch('/api/gatekeeper',{cache:'no-store'})).json();
-    if(!g || g.enabled === false){ _setGk('gk-idle','GATEKEEPER \u00b7 STANDBY',''); window._gkBlocked=false; return; }
+    if(!g || g.enabled === false){ _setGk('gk-idle','GATEKEEPER \u00b7 STANDBY',''); window._gkBlocked=false; window._scanAuthorized=true; return; }
     const sid = g.session_id || '';
     window._gkBlocked = (g.status === 'pending_approval');
+    window._scanAuthorized = (g.status !== 'pending_approval');  // only active/closed release the visual sweep
     if(g.status === 'pending_approval') _setGk('gk-pending','GATEKEEPER \u00b7 PENDING AUTHORIZATION', sid);
     else if(g.status === 'active') _setGk('gk-active','GATEKEEPER \u00b7 SYNCHRONIZED & READY', sid);
     else if(g.status === 'closed') _setGk('gk-closed','GATEKEEPER \u00b7 AUDIT COMPLETE', sid);
@@ -1323,7 +1333,12 @@ async function pollGatekeeper(){
       _gkStatus = g.status;
       if(g.status === 'active'){
         logEv('AUTHORIZED BY GATEKEEPER \u2014 scan proceeding (session '+sid+')','ok');
-        if(realScanStarted || window._waitingForScanModal) showAIGenProgress();
+        document.getElementById("hudScan").textContent="SCANNING...";
+        // Authorized: hide the auth-required overlay so the visual sweep runs in step
+        // with the real scan. Only if the sweep already finished do we fall back to the
+        // AI-report wait overlay.
+        if(phase==='done' && (realScanStarted || window._waitingForScanModal)) showAIGenProgress();
+        else hideAIGenProgress();
       } else if(g.status === 'closed'){ logEv('Gatekeeper session closed \u2014 signed audit report generated','ok'); _gkSession = null; }
     }
   }catch(e){}

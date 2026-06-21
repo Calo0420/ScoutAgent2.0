@@ -25,6 +25,8 @@ ScoutAgent 2.0 is an AI-powered, read-only infrastructure assessment tool built 
 
 No changes are ever made to any system ScoutAgent touches. Every operation is strictly read-only: it runs shell commands via SSH, reads vCenter API responses over HTTPS, and performs host-discovery and port scans with nmap. The output is a single Markdown report covering six sections: Executive Summary, Server Inventory, Risk Map, Savings Estimate, License Cost Comparison, and Migration Roadmap. The entire assessment typically completes in 3 to 8 minutes depending on environment size and network latency.
 
+**Governance via Gatekeeper.** ScoutAgent runs behind Gatekeeper, an AI trust gateway that sits between the agent and your infrastructure. Before any scan begins, an operator must authorize the session. Every tool call and file access the agent attempts is evaluated against an allow-policy in real time — configuration and posture are permitted, but reads of sensitive content (`.env` files, private keys, credential stores) are blocked and logged. Each session produces a signed compliance audit report listing every access, allowed or blocked, sealed with a SHA-256 hash that can be independently re-verified to prove the access log was not altered.
+
 ---
 
 ## 2. Prerequisites
@@ -271,6 +273,11 @@ OLLAMA_MODEL=llama3
 # Venice AI via Agent Zero (required for venice mode)
 VENICE_API_KEY=sk-a0-...
 VENICE_MODEL=llama-3.3-70b
+
+# Gatekeeper AI trust gateway
+GATEKEEPER_ENABLED=true              # gate every tool call through Gatekeeper
+GATEKEEPER_URL=http://localhost:8001 # Gatekeeper service endpoint
+GATEKEEPER_SESSION=true              # require operator authorization before scanning
 ```
 
 ---

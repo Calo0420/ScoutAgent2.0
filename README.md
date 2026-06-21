@@ -9,15 +9,15 @@ ScoutAgent 2.0 is a Claude-powered infrastructure assessment tool that connects 
 
 ## 🔐 Trust Layer — Powered by Gatekeeper
 
-ScoutAgent 2.0 works with **[Gatekeeper](https://github.com/Calo0420/Gatekeeper)** — an AI trust gateway that monitors and certifies every scan session.
+ScoutAgent 2.0 runs behind **[Gatekeeper](https://github.com/Apex-accelerators/Gatekeeper)** — an AI trust gateway that authorizes, monitors, and certifies every scan session.
 
-When deployed with Gatekeeper:
-- Client approves the exact scope before ScoutAgent enters
-- Every tool call is logged and monitored in real time
-- Unauthorized access attempts are blocked automatically
-- A cryptographically signed PDF audit report is generated on exit
+When deployed with Gatekeeper (`GATEKEEPER_SESSION=true`):
+- The operator **approves the session before ScoutAgent reads anything** — the agent blocks until authorized
+- Every tool call and file access is checked against policy in real time
+- Configuration and posture are allowed; reads of **secret content** (`.env`, private keys, credential stores) are **blocked and logged**
+- A **signed compliance audit report** is generated on exit, sealed with a **SHA-256 hash that can be independently re-verified** (`verify_audit.py`) — tamper-evident proof, not "trust me"
 
-> *Gatekeeper is what makes ScoutAgent enterprise-deployable.*
+> *Gatekeeper is what makes ScoutAgent enterprise-deployable: governance you can prove, not promise.*
 
 ---
 
@@ -65,7 +65,7 @@ The live web dashboard runs on port `7070` and provides:
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.12+
 - An [Anthropic API key](https://console.anthropic.com/) (or configure an alternate deploy mode)
 - **For Linux scans:** SSH access to the target (key or password)
 - **For Windows scans:** WinRM enabled on target (`winrm quickconfig`) and account in Remote Management Users group
@@ -75,7 +75,7 @@ The live web dashboard runs on port `7070` and provides:
 ### Install (Linux)
 
 ```bash
-git clone https://github.com/Calo0420/ScoutAgent2.0.git /opt/ScoutAgent2.0
+git clone https://github.com/Apex-accelerators/ScoutAgent2.0.git /opt/ScoutAgent2.0
 cd /opt/ScoutAgent2.0
 cp .env.example .env
 nano .env          # add your API key and client info
@@ -85,7 +85,7 @@ bash install.sh
 ### Install (Windows)
 
 ```powershell
-git clone https://github.com/Calo0420/ScoutAgent2.0.git C:\ScoutAgent2.0
+git clone https://github.com/Apex-accelerators/ScoutAgent2.0.git C:\ScoutAgent2.0
 cd C:\ScoutAgent2.0
 copy .env.example .env
 # Edit .env — add your API key and client info
@@ -171,8 +171,9 @@ TARGET_HOST=192.168.1.100
 DEMO_MODE=false
 
 # Gatekeeper trust gateway (optional)
-GATEKEEPER_ENABLED=false
+GATEKEEPER_ENABLED=false                       # gate every tool call through Gatekeeper
 GATEKEEPER_URL=http://<gatekeeper-host>:8001
+GATEKEEPER_SESSION=false                        # true = require operator authorization before scanning
 
 # Venice AI (required when DEPLOY_MODE=venice)
 VENICE_API_KEY=sk-a0-...
