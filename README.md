@@ -173,9 +173,10 @@ With Gatekeeper enabled, every tool call ScoutAgent makes is intercepted, evalua
 
 ## 👤 Author
 
-**Oscar Reyes Luna** (Calo0420)  
-Technical Consultant · Everforth Innovation Labs · Apex Systems  
-Querétaro, Mexico
+| Name | Role |
+|---|---|
+| **Oscar Reyes Luna** (Calo0420) | Creator · Builder · Everforth Innovation Labs |
+| **Juan Alonso** | Creator · Accelerators Implementation · Everforth Innovation Labs |
 
 ---
 
