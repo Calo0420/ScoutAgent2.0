@@ -4,6 +4,7 @@ Connects via WinRM using PowerShell. Zero writes to client environment.
 Requires: pip install pywinrm
 """
 from datetime import datetime
+from tools.validate import validate_host
 
 try:
     import winrm
@@ -70,6 +71,7 @@ def scan_windows_environment(
         }
 
     try:
+        validate_host(host)
         session, _ = _make_session(host, username, password, port, use_ssl)
 
         return {
@@ -170,6 +172,7 @@ def check_windows_security(
         }
 
     try:
+        validate_host(host)
         session, _ = _make_session(host, username, password, port, use_ssl)
 
         checks = {}

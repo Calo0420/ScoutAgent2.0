@@ -118,8 +118,8 @@ def request_access(resource: str, action: str = "execute") -> bool:
         return allowed
 
     except Exception as e:
-        print(f"[Gatekeeper] Connection error — allowing by default: {e}")
-        return True
+        print(f"[Gatekeeper] Connection error — DENYING by default (fail-closed): {e}")
+        return False
 
 
 def close_session() -> dict:
