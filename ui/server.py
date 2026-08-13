@@ -4,6 +4,7 @@ Scouter 2.0 — API + static file server
 Serves the UI on / and exposes /api/latest for live scan results.
 Run: uvicorn server:app --host 0.0.0.0 --port 7070
 """
+import hmac
 import json
 import os
 import re
@@ -16,7 +17,7 @@ from pathlib import Path
 import paramiko
 import requests
 
-from fastapi import FastAPI, Body
+from fastapi import FastAPI, Body, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -32,11 +33,33 @@ PYTHON_PATH = (
 )
 ROOT_DIR    = Path(__file__).parent.parent
 
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+from tools.validate import validate_host
+
 _scan_lock = threading.Lock()
 _scan_proc = None
 _process_started_at = time.time()
 
-DEFAULT_OPERATOR_PASSWORD = "scouter2"
+# No hardcoded fallback password. If OPERATOR_PASSWORD isn't configured in
+# .env, every password-gated endpoint below fails closed (401/500) rather
+# than silently accepting a known, source-visible default.
+def _get_configured_password() -> str:
+    return read_env().get("OPERATOR_PASSWORD", "")
+
+def _verify_password(supplied: str) -> bool:
+    """Constant-time comparison. Explicitly fails if nothing is configured —
+    hmac.compare_digest("", "") is True, so an unset password must never
+    reach the comparison at all, or a blank submitted password would pass."""
+    configured = _get_configured_password()
+    if not configured:
+        return False
+    return hmac.compare_digest(supplied or "", configured)
+
+def _require_operator_auth(request: Request) -> bool:
+    """For GET-style reads where a JSON body isn't reliable across all
+    clients — checked via the X-Operator-Password header instead."""
+    return _verify_password(request.headers.get("X-Operator-Password", ""))
 SENSITIVE_ENV_KEYS = {"SSH_PASSWORD", "VCENTER_PASS", "WIN_PASS"}
 
 # Runtime-only credential cache (never persisted to disk).
@@ -167,15 +190,17 @@ def api_version():
 
 @app.post("/api/settings/auth")
 def auth_settings(payload: dict = Body(...)):
-    env = read_env()
-    password = env.get("OPERATOR_PASSWORD", DEFAULT_OPERATOR_PASSWORD)
-    if payload.get("password") == password:
+    if not _get_configured_password():
+        return JSONResponse({"ok": False, "error": "OPERATOR_PASSWORD not configured on server"}, status_code=500)
+    if _verify_password(payload.get("password", "")):
         return JSONResponse({"ok": True})
     return JSONResponse({"ok": False, "error": "Invalid password"}, status_code=401)
 
 
 @app.get("/api/settings")
-def get_settings():
+def get_settings(request: Request):
+    if not _require_operator_auth(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
     env = read_env()
     return JSONResponse({
         "deploy_mode":        env.get("DEPLOY_MODE", "claude"),
@@ -198,10 +223,11 @@ def get_settings():
 
 @app.post("/api/settings")
 def save_settings(payload: dict = Body(...)):
-    env = read_env()
-    password = env.get("OPERATOR_PASSWORD", DEFAULT_OPERATOR_PASSWORD)
-    if payload.get("password") != password:
+    if not _get_configured_password():
+        return JSONResponse({"ok": False, "error": "OPERATOR_PASSWORD not configured on server"}, status_code=500)
+    if not _verify_password(payload.get("password", "")):
         return JSONResponse({"ok": False, "error": "Invalid password"}, status_code=401)
+    env = read_env()
     updates = {}
     if "deploy_mode"  in payload: updates["DEPLOY_MODE"]  = payload["deploy_mode"]
     if "demo_mode"    in payload: updates["DEMO_MODE"]    = "true" if payload["demo_mode"] else "false"
@@ -227,6 +253,10 @@ def save_settings(payload: dict = Body(...)):
 @app.post("/api/settings/ssh-key")
 def save_ssh_key(payload: dict = Body(...)):
     """Accepts pasted private key content, writes it to /root/.ssh/ with correct permissions."""
+    if not _get_configured_password():
+        return JSONResponse({"ok": False, "error": "OPERATOR_PASSWORD not configured on server"}, status_code=500)
+    if not _verify_password(payload.get("password", "")):
+        return JSONResponse({"ok": False, "error": "Invalid password"}, status_code=401)
     key_content = payload.get("key_content", "").strip()
     key_name    = payload.get("key_name", "scout_client_key").strip().replace("/", "_").replace(" ", "_")
     if not key_content:
@@ -256,6 +286,10 @@ def save_ssh_key(payload: dict = Body(...)):
 @app.post("/api/test-connection")
 def test_connection(payload: dict = Body(...)):
     """Tries an SSH connection with current settings and returns success/failure."""
+    if not _get_configured_password():
+        return JSONResponse({"ok": False, "error": "OPERATOR_PASSWORD not configured on server"}, status_code=500)
+    if not _verify_password(payload.get("operator_password", "")):
+        return JSONResponse({"ok": False, "error": "Invalid password"}, status_code=401)
     host     = payload.get("host", "").strip()
     user     = payload.get("user", "root").strip()
     key_path = payload.get("key_path", "").strip()
@@ -263,6 +297,10 @@ def test_connection(payload: dict = Body(...)):
     port     = int(payload.get("port", 22) or 22)
     if not host:
         return JSONResponse({"ok": False, "error": "No target host configured"})
+    try:
+        validate_host(host)
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)})
     try:
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())

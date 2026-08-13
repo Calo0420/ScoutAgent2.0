@@ -1513,7 +1513,7 @@ function onTargetOSChange(){
 }
 async function loadSettings(){
   try{
-    const res=await fetch('/api/settings');
+    const res=await fetch('/api/settings',{headers:{'X-Operator-Password':settingsPassword||''}});
     if(res.ok){
       const d=await res.json();
       document.getElementById('sClientName').value=d.client_name||'';
@@ -1614,7 +1614,7 @@ async function saveSSHKey(){
   if(!content){msg.style.color='var(--crit)';msg.textContent='Paste a private key first.';return;}
   msg.style.color='var(--muted)';msg.textContent='Saving key...';
   try{
-    const res=await fetch('/api/settings/ssh-key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key_content:content,key_name:name})});
+    const res=await fetch('/api/settings/ssh-key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key_content:content,key_name:name,password:settingsPassword})});
     const d=await res.json();
     if(d.ok){
       msg.style.color='var(--safe)';
@@ -1637,7 +1637,7 @@ async function testConnection(){
   const keyPath=document.getElementById('sSshKeyPath').value.trim();
   const password=document.getElementById('sSshPassword').value.trim();
   try{
-    const res=await fetch('/api/test-connection',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({host,user,port,key_path:keyPath,password})});
+    const res=await fetch('/api/test-connection',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({host,user,port,key_path:keyPath,password,operator_password:settingsPassword})});
     const d=await res.json();
     if(d.ok){
       el.style.color='var(--safe)';
