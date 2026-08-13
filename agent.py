@@ -12,9 +12,11 @@ Usage:
   python agent.py --full  # runs everything
 """
 import argparse
+import fcntl
 import json
 import os
 import sys
+import traceback
 from datetime import datetime
 from pathlib import Path
 
@@ -464,11 +466,33 @@ def map_findings_to_ui(all_findings: dict, client_name: str, ts: str,
 
 
 def _write_latest(data: dict) -> None:
-    """Atomically write reports/latest.json for the live UI."""
+    """Atomically write reports/latest.json for the live UI.
+
+    CONCURRENCY NOTE: this file is a single shared path with no session_id
+    in it. The UI's threading.Lock in ui/server.py only prevents two scans
+    launching from the SAME running server process — it does not protect
+    against a second, independent agent.py process (direct CLI, cron, a
+    second terminal) writing here at the same time. The flock below makes
+    concurrent writes safe (serialized, never interleaved/corrupted) but
+    does NOT make concurrent scans' live progress independently trackable —
+    two simultaneous real scans will still alternate updates in this one
+    file. That's an accepted architectural boundary for now: the intended
+    use case (UI-driven single scan at a time) is already protected by the
+    UI-level lock. A full fix would give every scan its own session-scoped
+    live file and rework the frontend to poll by session, not by a single
+    global "latest" pointer — worth doing if this ever needs multi-scan
+    support, not required for current single-scan-at-a-time operation.
+    """
     Path("reports").mkdir(exist_ok=True)
-    tmp = Path("reports/latest.json.tmp")
-    tmp.write_text(json.dumps(data, indent=2))
-    tmp.replace(Path("reports/latest.json"))
+    lock_path = Path("reports/latest.lock")
+    with open(lock_path, "w") as lockfile:
+        fcntl.flock(lockfile, fcntl.LOCK_EX)
+        try:
+            tmp = Path("reports/latest.json.tmp")
+            tmp.write_text(json.dumps(data, indent=2))
+            tmp.replace(Path("reports/latest.json"))
+        finally:
+            fcntl.flock(lockfile, fcntl.LOCK_UN)
 
 
 # ── Tool dispatcher ───────────────────────────────────────────────────────────
@@ -717,6 +741,27 @@ if __name__ == "__main__":
     try:
         report, findings = run_scout(request, client_name=args.client)
         save_report(report, args.client, findings)
+    except Exception as e:
+        # Crash resistance: a Bedrock timeout, API error, or target disconnect
+        # mid-scan must never leave the UI hung on a stale "scanning" state.
+        fail_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        print(f"\n[Scout] FATAL ERROR at {fail_ts}: {e}", file=sys.stderr)
+        traceback.print_exc()
+        try:
+            _write_latest({
+                "scan_id":      f"{args.client.lower().replace(' ', '_')}_{fail_ts}",
+                "client":       args.client,
+                "scanned_at":   fail_ts,
+                "status":       "failed",
+                "error":        str(e),
+                "current_node": None,
+                "findings":     {},
+                "details":      {},
+                "meta":         {},
+            })
+        except Exception:
+            pass  # best-effort — never let logging failure mask the real error
+        sys.exit(1)
     finally:
         if gk_session:
             close_session()  # always close so sessions never orphan as active

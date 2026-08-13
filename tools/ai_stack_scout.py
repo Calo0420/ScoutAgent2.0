@@ -5,6 +5,7 @@ model serving frameworks, vector databases, data pipelines.
 Read-only SSH. Zero writes to client environment.
 """
 import paramiko
+import shlex
 from datetime import datetime
 
 
@@ -100,7 +101,13 @@ def assess_ai_stack(host: str, username: str, key_path: str = None, password: st
 
         model_dirs = _ssh_run(client, "find /opt /home /var -name '*.bin' -o -name '*.gguf' -o -name '*.pt' 2>/dev/null | head -5")
         if model_dirs:
-            perms = _ssh_run(client, f"ls -la {model_dirs.splitlines()[0]} 2>/dev/null")
+            # SECURITY: model_dirs comes from a remote find result on the scanned
+            # target. Never interpolate untrusted remote output directly into a
+            # shell command — shlex.quote() neutralizes shell metacharacters
+            # (;, |, `, $(), etc) a maliciously named file could use for
+            # command injection against the target.
+            first_path = shlex.quote(model_dirs.splitlines()[0])
+            perms = _ssh_run(client, f"ls -la {first_path} 2>/dev/null")
             if "rw-rw-rw" in perms or "rwxrwxrwx" in perms:
                 security_gaps.append("Model files found with world-writable permissions")
 

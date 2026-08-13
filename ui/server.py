@@ -10,9 +10,11 @@ import re
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 
 import paramiko
+import requests
 
 from fastapi import FastAPI, Body
 from fastapi.responses import FileResponse, JSONResponse
@@ -32,6 +34,7 @@ ROOT_DIR    = Path(__file__).parent.parent
 
 _scan_lock = threading.Lock()
 _scan_proc = None
+_process_started_at = time.time()
 
 DEFAULT_OPERATOR_PASSWORD = "scouter2"
 
@@ -70,6 +73,65 @@ def write_env(updates: dict):
         if k not in updated_keys:
             lines.append(f"{k}={v}")
     ENV_PATH.write_text('\n'.join(lines) + '\n')
+
+
+def _get_git_version() -> dict:
+    """Best-effort git commit info — never raises, always returns something."""
+    try:
+        commit = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(ROOT_DIR), capture_output=True, text=True, timeout=3
+        ).stdout.strip() or "unknown"
+        commit_date = subprocess.run(
+            ["git", "log", "-1", "--format=%ai"],
+            cwd=str(ROOT_DIR), capture_output=True, text=True, timeout=3
+        ).stdout.strip() or "unknown"
+        return {"commit": commit, "commit_date": commit_date}
+    except Exception:
+        return {"commit": "unknown", "commit_date": "unknown"}
+
+
+@app.get("/api/version")
+def api_version():
+    """
+    Version + health snapshot. The first thing a real IT specialist checks
+    before trusting a tool — what's actually running, how long has it been
+    up, and is the trust layer (Gatekeeper) even reachable right now.
+    Every sub-check is best-effort and time-boxed so this endpoint itself
+    can never hang or crash the server.
+    """
+    env = read_env()
+    git_info = _get_git_version()
+    uptime_seconds = round(time.time() - _process_started_at)
+
+    gatekeeper_enabled = env.get("GATEKEEPER_ENABLED", "true").lower() == "true"
+    gatekeeper_url = env.get("GATEKEEPER_URL", "http://localhost:8001")
+    gatekeeper_status = "disabled"
+    gatekeeper_latency_ms = None
+    if gatekeeper_enabled:
+        try:
+            t0 = time.time()
+            resp = requests.get(f"{gatekeeper_url}/", timeout=3)
+            gatekeeper_latency_ms = round((time.time() - t0) * 1000)
+            gatekeeper_status = "reachable" if resp.status_code < 500 else "error"
+        except requests.exceptions.RequestException:
+            gatekeeper_status = "unreachable"
+
+    return JSONResponse({
+        "service": "ScoutAgent",
+        "commit": git_info["commit"],
+        "commit_date": git_info["commit_date"],
+        "deploy_mode": env.get("DEPLOY_MODE", "claude"),
+        "uptime_seconds": uptime_seconds,
+        "scan_currently_running": bool(_scan_proc and _scan_proc.poll() is None),
+        "gatekeeper": {
+            "enabled": gatekeeper_enabled,
+            "session_gating": env.get("GATEKEEPER_SESSION", "false").lower() == "true",
+            "url": gatekeeper_url,
+            "status": gatekeeper_status,
+            "latency_ms": gatekeeper_latency_ms,
+        },
+    })
 
 
 @app.post("/api/settings/auth")
