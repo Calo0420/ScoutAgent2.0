@@ -582,7 +582,8 @@ def run_scout(user_request: str, client_name: str = "Client") -> str:
             if hasattr(block, "text") and block.text:
                 print(block.text)
                 if len(block.text) > 200:
-                    best_report = block.text
+                    if best_report is None or len(block.text) > len(best_report):
+                        best_report = block.text
 
         if response.stop_reason == "end_turn":
             for block in reversed(response.content):
@@ -639,7 +640,19 @@ def run_scout(user_request: str, client_name: str = "Client") -> str:
 
 
 # ── Save report to file ───────────────────────────────────────────────────────
+def _strip_preamble(report: str) -> str:
+    """Drop any conversational preamble the model emits before the report itself
+    (e.g. 'Understood. Here is the full report...'). A client-ready report starts
+    at its first markdown heading."""
+    if not report:
+        return report
+    import re
+    m = re.search(r"(?m)^#{1,6} ", report)
+    return report[m.start():].lstrip() if m else report
+
+
 def save_report(report: str, client_name: str, all_findings: dict = None) -> str:
+    report = _strip_preamble(report)
     Path("reports").mkdir(exist_ok=True)
     ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
     slug = client_name.lower().replace(" ", "_")
@@ -679,6 +692,9 @@ if __name__ == "__main__":
     parser.add_argument("--subnet",   help="Network subnet e.g. 10.0.0.0/24")
     parser.add_argument("--demo",     action="store_true", help="Run with mock data — no real infra needed")
     args = parser.parse_args()
+    args.password = args.password or os.getenv("SCOUT_SSH_PASSWORD", "")
+    args.win_pass = args.win_pass or os.getenv("SCOUT_WIN_PASSWORD", "")
+    args.vc_pass = args.vc_pass or os.getenv("SCOUT_VCENTER_PASS", "")
 
     if args.demo:
         os.environ["DEMO_MODE"] = "true"

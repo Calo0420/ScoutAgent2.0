@@ -4,6 +4,7 @@ Runs read-only commands over SSH. Zero writes to client environment.
 """
 import paramiko
 from datetime import datetime
+from tools.validate import validate_host
 
 
 def _ssh_run(client, cmd):
@@ -29,6 +30,7 @@ def scan_linux_environment(host: str, username: str, key_path: str = None, passw
     Returns OS info, CPU/RAM/disk, uptime, users, open ports, installed packages count.
     """
     try:
+        validate_host(host)
         client = _connect(host, username, key_path, password, port)
     except Exception as e:
         return {"error": str(e), "host": host, "scanned_at": datetime.utcnow().isoformat()}
@@ -62,6 +64,7 @@ def check_cis_benchmarks(host: str, username: str, key_path: str = None, passwor
     Returns pass/fail per control with remediation hint.
     """
     try:
+        validate_host(host)
         client = _connect(host, username, key_path, password, port)
     except Exception as e:
         return {"error": str(e), "host": host, "scanned_at": datetime.utcnow().isoformat()}
@@ -78,6 +81,9 @@ def check_cis_benchmarks(host: str, username: str, key_path: str = None, passwor
             check("grep -E '^Protocol' /etc/ssh/sshd_config",                  "2",             "SSH: Protocol 2 only",           "Set Protocol 2 in sshd_config"),
             check("ufw status 2>/dev/null || firewall-cmd --state 2>/dev/null", "active|running","Firewall active",                "Enable ufw or firewalld"),
             check("grep -E '^SELINUX=' /etc/selinux/config 2>/dev/null",       "enforcing",     "SELinux enforcing",              "Set SELINUX=enforcing in /etc/selinux/config"),
+            # POLICY NOTE: grep -c reads /etc/shadow but returns only a COUNT of non-locked
+            # accounts — no hashes or credentials returned. Detection-only; intentionally
+            # not routed through Gatekeeper (CIS Control 3: detection permitted, content blocked).
             check("grep -c '^[^:]*:[^!*]' /etc/shadow",                        "",              "No empty/default passwords",     "Lock accounts: passwd -l <user>"),
             check("sysctl net.ipv4.ip_forward",                                 "= 0",           "IP forwarding disabled",         "sysctl -w net.ipv4.ip_forward=0"),
             check("sysctl net.ipv4.conf.all.accept_redirects",                  "= 0",           "ICMP redirects disabled",        "sysctl -w net.ipv4.conf.all.accept_redirects=0"),
@@ -102,6 +108,7 @@ def audit_automation_maturity(host: str, username: str, key_path: str = None, pa
     A8 — Automation & IaC: checks for automation tooling presence and config drift indicators.
     """
     try:
+        validate_host(host)
         client = _connect(host, username, key_path, password, port)
     except Exception as e:
         return {"error": str(e), "host": host, "scanned_at": datetime.utcnow().isoformat()}

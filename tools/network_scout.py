@@ -4,6 +4,7 @@ Uses nmap + ping. Read-only passive scan.
 """
 import subprocess
 import sys
+from tools.validate import validate_subnet
 
 
 def scan_network_health(target_subnet: str) -> dict:
@@ -11,6 +12,11 @@ def scan_network_health(target_subnet: str) -> dict:
     A3 — Network Health Check: discovers live hosts, open risky ports,
     latency baseline, produces risk-rated findings.
     """
+    try:
+        validate_subnet(target_subnet)
+    except ValueError as e:
+        return {"error": str(e), "subnet": target_subnet}
+
     findings = {"subnet": target_subnet, "hosts": [], "risks": []}
 
     # Host discovery

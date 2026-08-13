@@ -34,6 +34,13 @@ _scan_lock = threading.Lock()
 _scan_proc = None
 
 DEFAULT_OPERATOR_PASSWORD = "scouter2"
+SENSITIVE_ENV_KEYS = {"SSH_PASSWORD", "VCENTER_PASS", "WIN_PASS"}
+
+# Runtime-only credential cache (never persisted to disk).
+_volatile_secrets = {
+    "ssh_password": "",
+    "vcenter_pass": "",
+}
 
 app = FastAPI()
 
@@ -47,7 +54,10 @@ def read_env() -> dict:
             line = line.strip()
             if line and not line.startswith('#') and '=' in line:
                 k, _, v = line.partition('=')
-                env[k.strip()] = v.strip()
+                key = k.strip()
+                if key in SENSITIVE_ENV_KEYS:
+                    continue
+                env[key] = v.strip()
     return env
 
 
@@ -72,6 +82,27 @@ def write_env(updates: dict):
     ENV_PATH.write_text('\n'.join(lines) + '\n')
 
 
+def _purge_sensitive_env_keys():
+    """Remove legacy persisted secrets so SSH/WinRM creds stay memory-only."""
+    if not ENV_PATH.exists():
+        return
+    lines = []
+    changed = False
+    for line in ENV_PATH.read_text().splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith('#') and '=' in stripped:
+            key = stripped.partition('=')[0].strip()
+            if key in SENSITIVE_ENV_KEYS:
+                changed = True
+                continue
+        lines.append(line)
+    if changed:
+        ENV_PATH.write_text('\n'.join(lines) + '\n')
+
+
+_purge_sensitive_env_keys()
+
+
 @app.post("/api/settings/auth")
 def auth_settings(payload: dict = Body(...)):
     env = read_env()
@@ -92,7 +123,7 @@ def get_settings():
         "ssh_user":           env.get("SSH_USER", "root"),
         "ssh_key":            env.get("SSH_KEY", ""),
         "ssh_port":           int(env.get("SSH_PORT", "22") or "22"),
-        "ssh_password_set":   bool(env.get("SSH_PASSWORD", "").strip()),
+        "ssh_password_set":   bool(_volatile_secrets.get("ssh_password", "")),
         "subnet":             env.get("SUBNET", ""),
         "vcenter_host":       env.get("VCENTER_HOST", ""),
         "vcenter_user":       env.get("VCENTER_USER", ""),
@@ -117,15 +148,16 @@ def save_settings(payload: dict = Body(...)):
     if "ssh_user"     in payload: updates["SSH_USER"]     = payload["ssh_user"]
     if "ssh_key"      in payload: updates["SSH_KEY"]      = payload["ssh_key"]
     if "ssh_port"      in payload: updates["SSH_PORT"]      = str(payload["ssh_port"])
-    if "ssh_password"  in payload: updates["SSH_PASSWORD"]  = payload["ssh_password"]
+    if "ssh_password"  in payload: _volatile_secrets["ssh_password"] = (payload.get("ssh_password") or "")
     if "subnet"        in payload: updates["SUBNET"]        = payload["subnet"]
     if "vcenter_host"  in payload: updates["VCENTER_HOST"]  = payload["vcenter_host"]
     if "vcenter_user"  in payload: updates["VCENTER_USER"]  = payload["vcenter_user"]
-    if payload.get("vcenter_pass"):    updates["VCENTER_PASS"]      = payload["vcenter_pass"]
+    if "vcenter_pass" in payload: _volatile_secrets["vcenter_pass"] = (payload.get("vcenter_pass") or "")
     if payload.get("api_key"):         updates["ANTHROPIC_API_KEY"] = payload["api_key"]
     if payload.get("venice_api_key"):  updates["VENICE_API_KEY"]    = payload["venice_api_key"]
     if payload.get("venice_model"):    updates["VENICE_MODEL"]       = payload["venice_model"]
     if payload.get("new_password"):    updates["OPERATOR_PASSWORD"]  = payload["new_password"]
+    _purge_sensitive_env_keys()
     write_env(updates)
     return JSONResponse({"ok": True})
 
@@ -200,27 +232,26 @@ def run_scan():
         ssh_user     = env.get("SSH_USER", "root") or "root"
         ssh_key      = env.get("SSH_KEY", "")
         ssh_port     = env.get("SSH_PORT", "22") or "22"
-        ssh_password = env.get("SSH_PASSWORD", "")
+        ssh_password = _volatile_secrets.get("ssh_password", "")
         subnet       = env.get("SUBNET", "")
         vcenter_host = env.get("VCENTER_HOST", "")
         vcenter_user = env.get("VCENTER_USER", "")
-        vcenter_pass = env.get("VCENTER_PASS", "")
+        vcenter_pass = _volatile_secrets.get("vcenter_pass", "")
 
         cmd = [str(PYTHON_PATH), str(AGENT_PATH), "--client", client_name]
         if demo_mode or not target_host:
             cmd.append("--demo")
         else:
-            cmd += ["--host", target_host, "--user", ssh_user, "--port", ssh_port]
-            if ssh_key:
-                cmd += ["--key", ssh_key]
-            elif ssh_password:
-                cmd += ["--password", ssh_password]
+            if str(ssh_port) == "5985":
+                cmd += ["--windows", target_host, "--win-user", ssh_user, "--win-port", str(ssh_port)]
+            else:
+                cmd += ["--host", target_host, "--user", ssh_user, "--port", ssh_port]
+                if ssh_key:
+                    cmd += ["--key", ssh_key]
             if subnet:
                 cmd += ["--subnet", subnet]
             if vcenter_host and vcenter_user:
                 cmd += ["--vcenter", vcenter_host, "--vc-user", vcenter_user]
-                if vcenter_pass:
-                    cmd += ["--vc-pass", vcenter_pass]
 
         env_vars = os.environ.copy()
         env_vars["ANTHROPIC_API_KEY"] = env.get("ANTHROPIC_API_KEY", "")
@@ -230,6 +261,9 @@ def run_scan():
         env_vars["GATEKEEPER_ENABLED"] = env.get("GATEKEEPER_ENABLED", "true")
         env_vars["GATEKEEPER_URL"]     = env.get("GATEKEEPER_URL", "http://localhost:8001")
         env_vars["GATEKEEPER_SESSION"] = env.get("GATEKEEPER_SESSION", "false")
+        env_vars["SCOUT_SSH_PASSWORD"] = ssh_password
+        env_vars["SCOUT_WIN_PASSWORD"] = ssh_password if str(ssh_port) == "5985" else ""
+        env_vars["SCOUT_VCENTER_PASS"] = vcenter_pass
 
         _scan_proc = subprocess.Popen(cmd, cwd=str(ROOT_DIR), env=env_vars)
 
@@ -286,14 +320,48 @@ def _pdf_heat_map(html: str) -> str:
 
 
 def _pdf_risk_register(html: str) -> str:
-    """Tag the Risk Register table so CSS column widths apply."""
+    """Convert Risk Register table to card-style divs with guaranteed break-inside:avoid."""
+    def convert(m):
+        heading = m.group(1)
+        between = m.group(2)
+        table   = m.group(3)
+        tbody_m = re.search(r"<tbody>(.*?)</tbody>", table, re.DOTALL)
+        if not tbody_m:
+            return m.group(0)
+        cards = []
+        for row in re.findall(r"<tr>(.*?)</tr>", tbody_m.group(1), re.DOTALL):
+            cells = re.findall(r"<td[^>]*>(.*?)</td>", row, re.DOTALL)
+            if len(cells) < 5:
+                continue
+            num     = re.sub(r"<[^>]+>", "", cells[0]).strip()
+            finding = cells[1].strip()
+            host    = re.sub(r"<[^>]+>", "", cells[2]).strip()
+            lik     = re.sub(r"<[^>]+>", "", cells[3]).strip()
+            imp     = re.sub(r"<[^>]+>", "", cells[4]).strip()
+            rating  = re.sub(r"<[^>]+>", "", cells[5]).strip() if len(cells) > 5 else ""
+            cis     = re.sub(r"<[^>]+>", "", cells[6]).strip() if len(cells) > 6 else ""
+            col = {"CRITICAL":"#b71c1c","HIGH":"#d32f2f","MEDIUM":"#f57f17","LOW":"#2e7d32"}.get(rating, "#44546A")
+            cards.append(
+                f'<div style="break-inside:avoid;page-break-inside:avoid;border-left:4px solid {col};' +
+                f'background:#f5f7f9;margin:5px 0;padding:8px 12px;">' +
+                f'<span style="color:{col};font-weight:bold;font-size:11px;">[{num}]</span> ' +
+                f'<span style="font-size:12px;">{finding}</span>' +
+                f'<div style="margin-top:4px;color:#828A91;font-size:10px;">' +
+                f'Host: {host} &nbsp;|&nbsp; Likelihood: {lik} &nbsp;|&nbsp; ' +
+                f'Impact: {imp} &nbsp;|&nbsp; ' +
+                f'Rating: <strong style="color:{col};">{rating}</strong> &nbsp;|&nbsp; {cis}' +
+                f'</div></div>'
+            )
+        return (
+            '<div style="page-break-before:always;">' +
+            heading + between +
+            "".join(cards) +
+            "</div>"
+        )
     return re.sub(
-        r'(Risk Register</h[23]>.*?)<table(?!\s+class)',
-        r'\1<table class="risk-register"',
-        html, count=1, flags=re.DOTALL | re.IGNORECASE
+        r"(<h[23][^>]*>[^<]*Risk Register[^<]*</h[23]>)(.*?)(<table.*?</table>)",
+        convert, html, count=1, flags=re.DOTALL | re.IGNORECASE
     )
-
-
 
 def _pdf_normalize_emoji(html: str) -> str:
     """Replace emoji with DejaVu-renderable HTML spans (EC2 has no emoji font)."""
@@ -355,33 +423,22 @@ def download_latest_report():
 
         html = f"""<!DOCTYPE html><html><head><meta charset="utf-8">
         <style>
-          body {{ font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px;
-                 color: #1a2330; margin: 40px 50px; line-height: 1.6; }}
-          h1 {{ color: #44546A; font-size: 22px; border-bottom: 2px solid #44546A; padding-bottom: 6px; }}
+          body {{ font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #1a2330; margin: 0; line-height: 1.6; }}
+          h1 {{ color: #44546A; font-size: 22px; border-bottom: 2px solid #44546A; padding-bottom: 6px; margin-top: 20px; }}
           h2 {{ color: #44546A; font-size: 16px; margin-top: 28px; }}
-          h3 {{ color: #828A91; font-size: 14px; }}
+          h3 {{ color: #828A91; font-size: 14px; margin-top: 16px; }}
           table {{ border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 12px; }}
           th {{ background: #44546A; color: #fff; padding: 6px 10px; text-align: left; }}
           td {{ padding: 5px 10px; border-bottom: 1px solid #ddd; word-break: break-word; overflow-wrap: break-word; }}
-          tr:nth-child(even) {{ background: #f5f7f9; }}
-          code, pre {{ background: #f0f4f8; padding: 2px 6px; border-radius: 3px;
-                       font-family: monospace; font-size: 11px; }}
+          tr:nth-child(even) td {{ background: #f5f7f9; }}
+          code, pre {{ background: #f0f4f8; padding: 2px 6px; border-radius: 3px; font-family: monospace; font-size: 11px; }}
           pre {{ padding: 10px; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; }}
-          blockquote {{ border-left: 3px solid #828A91; margin: 8px 0;
-                        padding: 4px 12px; color: #828A91; background: #f5f7f9; }}
+          blockquote {{ border-left: 3px solid #828A91; margin: 8px 0; padding: 4px 12px; color: #828A91; background: #f5f7f9; }}
           hr {{ border: none; border-top: 1px solid #ddd; margin: 20px 0; }}
           @page {{ margin: 2cm; size: A4; }}
           .heat-map-tbl {{ border-collapse: collapse; width: 100%; margin: 16px 0; }}
           .heat-map-tbl th, .heat-map-tbl td {{ border: 1px solid #aaa; }}
-          .risk-register {{ table-layout: fixed; width: 100%; }}
-          .risk-register th:nth-child(1), .risk-register td:nth-child(1) {{ width: 4%; }}
-          .risk-register th:nth-child(2), .risk-register td:nth-child(2) {{ width: 40%; word-break: break-word; overflow-wrap: break-word; }}
-          .risk-register th:nth-child(3), .risk-register td:nth-child(3) {{ width: 13%; word-break: break-word; }}
-          .risk-register th:nth-child(4), .risk-register td:nth-child(4) {{ width: 9%; text-align: center; }}
-          .risk-register th:nth-child(5), .risk-register td:nth-child(5) {{ width: 9%; text-align: center; word-break: break-word; }}
-          .risk-register th:nth-child(6), .risk-register td:nth-child(6) {{ width: 9%; text-align: center; }}
-          .risk-register th:nth-child(7), .risk-register td:nth-child(7) {{ width: 16%; text-align: left; word-break: break-word; overflow-wrap: break-word; }}
-          td code {{ white-space: normal; word-break: break-all; }}
+          td code {{ white-space: normal; overflow-wrap: break-word; }}
         </style></head><body>
         <img src="everforth_logo.png" style="height:46px;display:block;margin:0 0 18px 0"/>
         {body_html}</body></html>"""

@@ -5,7 +5,9 @@ model serving frameworks, vector databases, data pipelines.
 Read-only SSH. Zero writes to client environment.
 """
 import paramiko
+import shlex
 from datetime import datetime
+from tools.validate import validate_host
 
 
 def _ssh_run(client, cmd):
@@ -19,6 +21,11 @@ def assess_ai_stack(host: str, username: str, key_path: str = None, password: st
     Checks GPU, CUDA, container runtime, model serving, vector DBs,
     data pipelines, security posture, and governance gaps.
     """
+    try:
+        validate_host(host)
+    except ValueError as e:
+        return {"error": str(e), "host": host, "scanned_at": datetime.utcnow().isoformat()}
+
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
@@ -100,7 +107,10 @@ def assess_ai_stack(host: str, username: str, key_path: str = None, password: st
 
         model_dirs = _ssh_run(client, "find /opt /home /var -name '*.bin' -o -name '*.gguf' -o -name '*.pt' 2>/dev/null | head -5")
         if model_dirs:
-            perms = _ssh_run(client, f"ls -la {model_dirs.splitlines()[0]} 2>/dev/null")
+            # shlex.quote() sanitizes the remote-derived path before shell interpolation.
+            # Without this, a crafted filename like "foo; cat /etc/shadow" runs two commands.
+            safe_path = shlex.quote(model_dirs.splitlines()[0].strip())
+            perms = _ssh_run(client, f"ls -la {safe_path} 2>/dev/null")
             if "rw-rw-rw" in perms or "rwxrwxrwx" in perms:
                 security_gaps.append("Model files found with world-writable permissions")
 
