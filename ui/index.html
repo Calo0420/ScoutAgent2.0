@@ -214,6 +214,8 @@ canvas{display:block;position:relative;z-index:1}
         <div class="accel on" data-idx="3"><div class="adot"></div><span class="atag">A5</span><div><div class="aname" style="font-size:11px">VMware Optimizer</div><div class="acov">VM Cost · Snapshots</div><div class="accel-desc">Analyzing VM sizing, snapshots, license waste</div></div></div>
         <div class="accel on" data-idx="4"><div class="adot"></div><span class="atag">A7</span><div><div class="aname" style="font-size:11px">AI Stack Assess</div><div class="acov">GPU · AI Readiness</div><div class="accel-desc">Detecting AI/ML stack, GPU availability, model serving</div></div></div>
         <div class="accel on" data-idx="5"><div class="adot"></div><span class="atag">A8</span><div><div class="aname" style="font-size:11px">Automation &amp; IaC</div><div class="acov">Automation · CI/CD</div><div class="accel-desc">Checking Terraform, Ansible, CI/CD pipeline maturity</div></div></div>
+        <div class="accel on" data-idx="6"><div class="adot"></div><span class="atag">A4</span><div><div class="aname" style="font-size:11px">Windows Fast Track</div><div class="acov">OS Health · Patches</div><div class="accel-desc">Checking OS build, patch level, disk & CPU utilization</div></div></div>
+        <div class="accel on" data-idx="7"><div class="adot"></div><span class="atag">A6</span><div><div class="aname" style="font-size:11px">Windows Hardening</div><div class="acov">Security Baseline</div><div class="accel-desc">Checking firewall, RDP exposure, SMBv1, UAC, auto-logon</div></div></div>
       </div>
     </div>
     <div style="padding:4px 0 2px">
@@ -364,13 +366,19 @@ const CONFIGS = {
   nomodel:   {id:'cfg-nomodel', accel:4, sev:'low',  label:'No model serving platform found',        detail:'Only scikit-learn — no inference stack, no vector DB',            business:'No platform to deploy AI models to end users. AI development cannot move from experimentation to production.'},
   noansible: {id:'cfg-noansible',accel:5,sev:'med',  label:'No Ansible / Terraform detected',        detail:'Configuration drift inevitable across 47 VMs — manual only',      business:'47 servers managed manually. Every change is a potential human error and a configuration drift waiting to cause an incident.'},
   nocicd:    {id:'cfg-nocicd',  accel:5, sev:'med',  label:'No CI/CD pipeline configured',           detail:'Only git + Docker — no automated testing or deployment',          business:'Every software release is manual. Slower delivery, higher error rate, and no safety net if something goes wrong.'},
+  winpatch:  {id:'cfg-winpatch',accel:6, sev:'high', label:'62 days since last Windows Update',      detail:'KB5031354 installed 62 days ago — cumulative update overdue',     business:'62 days without a security patch cycle. Known CVEs disclosed since then remain unaddressed on this host.'},
+  windisk:   {id:'cfg-windisk', accel:6, sev:'med',  label:'System drive at 88% utilization',        detail:'C: 440GB used of 500GB (88%) — approaching critical threshold',   business:'At current growth rate, this server runs out of disk space within weeks, causing a service outage.'},
+  winfw:     {id:'cfg-winfw',   accel:7, sev:'crit', label:'Windows Firewall disabled (Domain profile)', detail:'Get-NetFirewallProfile shows Domain profile: False',           business:'No firewall enforcement on this host. Any exposed service is reachable from the network without any filtering.'},
+  winrdp:    {id:'cfg-winrdp',  accel:7, sev:'high', label:'RDP enabled, exposed to network',        detail:'fDenyTSConnections=0 — remote desktop reachable',                 business:'Remote desktop exposed — the most common ransomware delivery vector in enterprise breaches today.'},
+  winsmb1:   {id:'cfg-winsmb1', accel:7, sev:'crit', label:'SMBv1 protocol still enabled',           detail:'Legacy protocol — vulnerable to EternalBlue-class exploits',      business:'SMBv1 is the exact protocol exploited in the 2017 WannaCry outbreak that cost billions globally. Still enabled here.'},
+  winautologon: {id:'cfg-winautologon',accel:7,sev:'high', label:'Auto-logon enabled with stored credentials', detail:'AutoAdminLogon=1 in registry — credentials exposed on disk', business:'Anyone with physical or remote console access bypasses the login screen entirely. No password required.'},
 };
 
 // Score formula: 100 − (actual_penalty / max_possible_penalty) × 95
 const SEV_PENALTY = {crit:20, high:12, med:5, low:2};
 const MAX_PENALTY  = Object.values(CONFIGS).reduce((s,c) => s + (SEV_PENALTY[c.sev]||0), 0);
 
-let accels = [true,true,true,true,true,true];
+let accels = [true,true,true,true,true,true,true,true];
 
 const PRESETS = {
   clean:    [],
@@ -386,6 +394,7 @@ let NODES = [
   {id:'vmware',  label:'VMware Cluster',sub:'vc.demo-client.local', icon:'&#9633;', accels:[3],   cfgKeys:['vmsoff','oversize','snap'],                         x:0,y:0,w:240,h:90},
   {id:'ai',      label:'AI/ML Stack',  sub:'Scikit / No GPU',       icon:'&#9670;', accels:[4],   cfgKeys:['nogpu','nomodel'],                                  x:0,y:0,w:240,h:90},
   {id:'auto',    label:'Automation',   sub:'Git / Docker only',     icon:'&#9881;', accels:[5],   cfgKeys:['noansible','nocicd'],                               x:0,y:0,w:240,h:90},
+  {id:'windows', label:'Windows Server',sub:'WIN-DC01  Server 2022', icon:'&#8862;', accels:[6,7], cfgKeys:['winpatch','windisk','winfw','winrdp','winsmb1','winautologon'], x:0,y:0,w:240,h:90},
 ];
 
 // ========== ACCELERATOR INFO CARDS ==========
@@ -402,6 +411,10 @@ const ACCEL_INFO=[
    checks:['Detecting NVIDIA GPU & CUDA drivers','Checking AI framework installations','Probing model serving endpoints','Scanning for vector databases','Reviewing AI workload resource limits']},
   {tag:'A8',name:'Automation & IaC',color:'#34d399',
    checks:['Checking for Ansible / Terraform','Scanning CI/CD pipeline configs','Detecting Docker & container usage','Checking configuration drift risk','Reviewing cron & scheduled jobs']},
+  {tag:'A4',name:'Windows Fast Track',color:'#5ea0ef',
+   checks:['Querying OS build & patch level','Checking CPU, RAM & disk utilization','Reviewing local admin group membership','Scanning open listening ports','Checking pending Windows Updates']},
+  {tag:'A6',name:'Windows Hardening',color:'#ef7ba8',
+   checks:['Checking Windows Firewall profile status','Testing RDP exposure via registry','Auditing local password & audit policy','Checking Windows Defender real-time protection','Scanning for legacy SMBv1 protocol','Reviewing UAC and auto-logon configuration']},
 ];
 
 // ========== STATE ==========
@@ -1055,13 +1068,13 @@ document.querySelectorAll('.accel').forEach(btn=>{
     const idx=+btn.dataset.idx;
     accels[idx]=!accels[idx];
     btn.classList.toggle('on',accels[idx]);
-    logEv(`Module ${['A1','A2','A3','A5','A7','A8'][idx]} ${accels[idx]?'enabled':'disabled'}`,accels[idx]?'ok':'med');
+    logEv(`Module ${['A1','A2','A3','A5','A7','A8','A4','A6'][idx]} ${accels[idx]?'enabled':'disabled'}`,accels[idx]?'ok':'med');
     updateAccelHud();
   });
 });
 
 function updateAccelHud(){
-  const names=['A1','A2','A3','A5','A7','A8'];
+  const names=['A1','A2','A3','A5','A7','A8','A4','A6'];
   const on=names.filter((_,i)=>accels[i]);
   document.getElementById('hudAccel').textContent=`MODULES ACTIVE: ${on.join(' · ')||'NONE'}`;
 }
@@ -1084,7 +1097,7 @@ document.querySelectorAll('.preset-btn').forEach(b=>b.addEventListener('click',(
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT') return;
   if(e.code==='Space'){e.preventDefault();startScan()}
-  if(e.key>='1'&&e.key<='6'){const i=+e.key-1;accels[i]=!accels[i];document.querySelectorAll('.accel')[i].classList.toggle('on',accels[i]);updateAccelHud()}
+  if(e.key>='1'&&e.key<='8'){const i=+e.key-1;accels[i]=!accels[i];document.querySelectorAll('.accel')[i].classList.toggle('on',accels[i]);updateAccelHud()}
   if(e.key==='n'||e.key==='N') applyPreset('nightmare');
   if(e.key==='c'||e.key==='C') applyPreset('clean');
   if(e.key==='f'||e.key==='F') toggleFullscreen();
@@ -1480,6 +1493,24 @@ function updateDeployModeFields(mode){
   document.getElementById('sAnthropicKeyField').style.display=(mode==='claude'||mode==='bedrock')?'':'none';
   document.getElementById('sVeniceKeyField').style.display=(mode==='venice')?'':'none';
 }
+function onTargetOSChange(){
+  const os=document.getElementById('sTargetOS').value;
+  const portInput=document.getElementById('sSshPort');
+  const isWin=os==='windows';
+  document.getElementById('sPortLabel').textContent=isWin?'WinRM Port':'SSH Port';
+  document.getElementById('sUserLabel').textContent=isWin?'WinRM User':'SSH User';
+  document.getElementById('sPassLabel').innerHTML=isWin
+    ? 'WinRM Password <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(required — key auth not supported for WinRM)</span>'
+    : 'SSH Password <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(alternative if no key)</span>';
+  document.getElementById('sAuthSectionHdr').textContent=isWin?'WinRM Authentication':'SSH Authentication';
+  document.getElementById('sSshKeyFields').style.display=isWin?'none':'block';
+  // Auto-switch the port to the sensible default for whichever OS is selected,
+  // but only when it's still at the OTHER protocol's default — never stomp on
+  // a value the operator already customized (e.g. a nonstandard SSH port).
+  const current=parseInt(portInput.value)||0;
+  if(isWin && current===22) portInput.value=5985;
+  if(!isWin && current===5985) portInput.value=22;
+}
 async function loadSettings(){
   try{
     const res=await fetch('/api/settings');
@@ -1489,6 +1520,8 @@ async function loadSettings(){
       document.getElementById('sTargetHost').value=d.target_host||'';
       document.getElementById('sSshUser').value=d.ssh_user||'root';
       document.getElementById('sSshPort').value=d.ssh_port||22;
+      document.getElementById('sTargetOS').value=(parseInt(d.ssh_port)===5985)?'windows':'linux';
+      onTargetOSChange();
       document.getElementById('sSshKeyPath').value=d.ssh_key||'';
       document.getElementById('sSshKeyStatus').textContent=d.ssh_key?'Active: '+d.ssh_key:'No key configured';
       document.getElementById('sSubnet').value=d.subnet||'';
@@ -1744,39 +1777,48 @@ function toggleSec(hdr){
         <label class="settings-label">Client Name</label>
         <input type="text" class="settings-input" id="sClientName" placeholder="e.g. Everforth Technologies">
       </div>
+      <div class="settings-field">
+        <label class="settings-label">Target OS</label>
+        <select class="settings-input" id="sTargetOS" onchange="onTargetOSChange()">
+          <option value="linux">Linux (SSH)</option>
+          <option value="windows">Windows Server (WinRM)</option>
+        </select>
+      </div>
       <div style="display:flex;gap:10px">
         <div class="settings-field" style="flex:2;margin-bottom:0">
           <label class="settings-label">Target Host</label>
           <input type="text" class="settings-input" id="sTargetHost" placeholder="e.g. 10.0.0.5 or server.local">
         </div>
         <div class="settings-field" style="flex:1;margin-bottom:0">
-          <label class="settings-label">SSH Port</label>
+          <label class="settings-label" id="sPortLabel">SSH Port</label>
           <input type="number" class="settings-input" id="sSshPort" value="22" placeholder="22">
         </div>
       </div>
       <div class="settings-field" style="margin-top:14px">
-        <label class="settings-label">SSH User</label>
+        <label class="settings-label" id="sUserLabel">SSH User</label>
         <input type="text" class="settings-input" id="sSshUser" placeholder="e.g. root or admin">
       </div>
 
       <!-- SSH AUTH -->
-      <div class="settings-section-hdr">SSH Authentication</div>
-      <div class="settings-field">
-        <label class="settings-label">SSH Key Path <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(existing key on server)</span></label>
-        <input type="text" class="settings-input" id="sSshKeyPath" placeholder="e.g. /root/.ssh/scout_local_key">
-        <div style="font-size:10px;color:var(--muted);margin-top:4px;font-family:'Share Tech Mono',monospace" id="sSshKeyStatus">No key saved</div>
-      </div>
-      <div class="settings-field">
-        <label class="settings-label">— or — Paste Private Key <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(paste content, server will save it)</span></label>
-        <textarea class="settings-input" id="sSshKeyContent" rows="4" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...paste your full private key here...&#10;-----END OPENSSH PRIVATE KEY-----" style="font-family:'Share Tech Mono',monospace;font-size:10px;resize:vertical;line-height:1.4"></textarea>
-        <div style="display:flex;gap:8px;margin-top:8px;align-items:stretch">
-          <input type="text" class="settings-input" id="sSshKeyName" placeholder="Key filename (e.g. client_key)" style="flex:1;margin:0">
-          <button class="run-btn" style="padding:0 14px;font-size:11px;white-space:nowrap;margin:0" onclick="saveSSHKey()">SAVE KEY</button>
+      <div class="settings-section-hdr" id="sAuthSectionHdr">SSH Authentication</div>
+      <div id="sSshKeyFields">
+        <div class="settings-field">
+          <label class="settings-label">SSH Key Path <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(existing key on server)</span></label>
+          <input type="text" class="settings-input" id="sSshKeyPath" placeholder="e.g. /root/.ssh/scout_local_key">
+          <div style="font-size:10px;color:var(--muted);margin-top:4px;font-family:'Share Tech Mono',monospace" id="sSshKeyStatus">No key saved</div>
         </div>
-        <div id="sshKeySaveMsg" style="font-size:11px;min-height:16px;margin-top:6px;font-family:'Share Tech Mono',monospace"></div>
+        <div class="settings-field">
+          <label class="settings-label">— or — Paste Private Key <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(paste content, server will save it)</span></label>
+          <textarea class="settings-input" id="sSshKeyContent" rows="4" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...paste your full private key here...&#10;-----END OPENSSH PRIVATE KEY-----" style="font-family:'Share Tech Mono',monospace;font-size:10px;resize:vertical;line-height:1.4"></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px;align-items:stretch">
+            <input type="text" class="settings-input" id="sSshKeyName" placeholder="Key filename (e.g. client_key)" style="flex:1;margin:0">
+            <button class="run-btn" style="padding:0 14px;font-size:11px;white-space:nowrap;margin:0" onclick="saveSSHKey()">SAVE KEY</button>
+          </div>
+          <div id="sshKeySaveMsg" style="font-size:11px;min-height:16px;margin-top:6px;font-family:'Share Tech Mono',monospace"></div>
+        </div>
       </div>
       <div class="settings-field">
-        <label class="settings-label">SSH Password <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(alternative if no key)</span></label>
+        <label class="settings-label" id="sPassLabel">SSH Password <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(alternative if no key)</span></label>
         <input type="password" class="settings-input" id="sSshPassword" placeholder="Leave blank if using key auth">
       </div>
       <button class="run-btn" style="width:100%;background:var(--panel);border:1px solid var(--border);color:var(--text);margin-bottom:6px" onclick="testConnection()">&#128299; TEST CONNECTION</button>
