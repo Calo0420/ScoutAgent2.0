@@ -3,19 +3,21 @@
 
 > *"We scan it. We explain it. We show you what it costs you."*
 
-ScoutAgent 2.0 is a Claude-powered infrastructure assessment tool that connects to a client's Linux or Windows Server, runs a comprehensive security and operational audit, and produces a board-ready PDF report — all in under 10 minutes, with no client-side software required.
+ScoutAgent 2.0 is a Claude-powered infrastructure assessment tool that connects to a client's Linux or Windows Server, runs a comprehensive security and operational audit, and produces a board-ready PDF report, with no client-side software required. Assessment time scales with the environment being scanned: a single, narrowly scoped host typically completes in a few minutes; a full multi-system environment across several accelerator modules scales with that environment, the same way a human-led assessment would.
+
+This is not sold as a standalone product. It's used internally to run a real, credentialed assessment during a client engagement, and the findings are what justify the consulting work that follows. The value is the assessment and the relationship, not a license.
 
 ---
 
 ## 🔐 Trust Layer — Powered by Gatekeeper
 
-ScoutAgent 2.0 runs behind **[Gatekeeper](https://github.com/Apex-accelerators/Gatekeeper)** — an AI trust gateway that authorizes, monitors, and certifies every scan session.
+ScoutAgent 2.0 runs behind **[Gatekeeper](https://github.com/Calo0420/Gatekeeper)** — a governance layer that authorizes, monitors, and certifies every scan session. It is a purpose-built trust gate for this specific workflow, not a claim to be the only AI governance tool in existence; that's a real, active category with serious open source competition, including Microsoft's own Agent Governance Toolkit. What Gatekeeper offers here is narrower and specific: a human-gated approval step and a signed, independently verifiable report built around exactly what ScoutAgent does.
 
 When deployed with Gatekeeper (`GATEKEEPER_SESSION=true`):
-- The operator **approves the session before ScoutAgent reads anything** — the agent blocks until authorized
+- A human operator **approves the session with a dedicated operator token before ScoutAgent reads anything** — the agent itself never has this token and cannot self-approve. If the token isn't configured on the server, approval is refused entirely rather than defaulting open.
 - Every tool call and file access is checked against policy in real time
 - Configuration and posture are allowed; reads of **secret content** (`.env`, private keys, credential stores) are **blocked and logged**
-- A **signed compliance audit report** is generated on exit, sealed with a **SHA-256 hash that can be independently re-verified** (`verify_audit.py`) — tamper-evident proof, not "trust me"
+- A **signed compliance audit report** is generated on exit. When `GATEKEEPER_AUDIT_KEY` is configured, it's sealed with an **HMAC-SHA256 hash that can be independently re-verified** (`verify_audit.py`) and cannot be forged by anyone with only database access; without the key it still generates, honestly labeled as unkeyed rather than claiming stronger protection than what's configured.
 
 > *Gatekeeper is what makes ScoutAgent enterprise-deployable: governance you can prove, not promise.*
 
@@ -75,7 +77,7 @@ The live web dashboard runs on port `7070` and provides:
 ### Install (Linux)
 
 ```bash
-git clone https://github.com/Apex-accelerators/ScoutAgent2.0.git /opt/ScoutAgent2.0
+git clone git@github.com:Calo0420/ScoutAgent2.0.git /opt/ScoutAgent2.0
 cd /opt/ScoutAgent2.0
 cp .env.example .env
 nano .env          # add your API key and client info
@@ -85,7 +87,7 @@ bash install.sh
 ### Install (Windows)
 
 ```powershell
-git clone https://github.com/Apex-accelerators/ScoutAgent2.0.git C:\ScoutAgent2.0
+git clone git@github.com:Calo0420/ScoutAgent2.0.git C:\ScoutAgent2.0
 cd C:\ScoutAgent2.0
 copy .env.example .env
 # Edit .env — add your API key and client info
