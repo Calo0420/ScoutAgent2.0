@@ -105,7 +105,14 @@ def assess_ai_stack(host: str, username: str, key_path: str = None, password: st
         # ── Security & Governance Gaps ────────────────────────────────────────
         security_gaps = []
 
-        model_dirs = _ssh_run(client, "find /opt /home /var -name '*.bin' -o -name '*.gguf' -o -name '*.pt' 2>/dev/null | head -5")
+        # -maxdepth 6 is critical here: an unbounded find across /opt /home /var
+        # on a host with Docker volumes, node_modules trees, etc. can run
+        # indefinitely and blow past paramiko's SSH channel read timeout,
+        # raising a bare TimeoutError with no message (this was the exact
+        # cause of assess_ai_stack's "empty error, no data" failures).
+        # Verified: unbounded search hit a 20s cap under live load; the same
+        # search with -maxdepth 6 completed in <1s.
+        model_dirs = _ssh_run(client, "find /opt /home /var -maxdepth 6 -name '*.bin' -o -name '*.gguf' -o -name '*.pt' 2>/dev/null | head -5")
         if model_dirs:
             # shlex.quote() sanitizes the remote-derived path before shell interpolation.
             # Without this, a crafted filename like "foo; cat /etc/shadow" runs two commands.
