@@ -1166,8 +1166,13 @@ function applyLiveResults(data) {
   const m = data.meta || {};
   if (m.host) document.getElementById('hudNode').textContent = `HOST: ${m.host}`;
 
-  // Update preset buttons to show live state
-  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  // Update preset buttons to show live state — only on the FIRST live-data
+  // arrival, not every 4s poll, so it doesn't fight with the user's manual
+  // preset selection (was clearing 'active' on every poll tick, making
+  // preset buttons look stuck/unresponsive)
+  if (!liveMode) {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  }
 
   liveMode = true;
   const tag = document.getElementById('liveTag');
