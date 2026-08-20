@@ -285,7 +285,13 @@ def save_ssh_key(payload: dict = Body(...)):
 
 @app.post("/api/test-connection")
 def test_connection(payload: dict = Body(...)):
-    """Tries an SSH connection with current settings and returns success/failure."""
+    """Tries an SSH (Linux) or WinRM (Windows) connection with current settings
+    and returns success/failure.
+
+    Previously this always attempted SSH regardless of target OS, so testing a
+    Windows/WinRM target failed with "Error reading SSH protocol banner" even
+    when the target was perfectly reachable via WinRM (SSH and WinRM speak
+    completely different protocols on the wire)."""
     if not _get_configured_password():
         return JSONResponse({"ok": False, "error": "OPERATOR_PASSWORD not configured on server"}, status_code=500)
     if not _verify_password(payload.get("operator_password", "")):
@@ -295,12 +301,35 @@ def test_connection(payload: dict = Body(...)):
     key_path = payload.get("key_path", "").strip()
     password = payload.get("password", "").strip()
     port     = int(payload.get("port", 22) or 22)
+    target_os = payload.get("os", "linux").strip().lower()
     if not host:
         return JSONResponse({"ok": False, "error": "No target host configured"})
     try:
         validate_host(host)
     except ValueError as e:
         return JSONResponse({"ok": False, "error": str(e)})
+
+    if target_os == "windows":
+        try:
+            import winrm
+        except ImportError:
+            return JSONResponse({"ok": False, "error": "pywinrm not installed on server. Run: pip install pywinrm"})
+        try:
+            session = winrm.Session(
+                f"http://{host}:{port}/wsman",
+                auth=(user, password),
+                transport="ntlm",
+            )
+            r = session.run_cmd("hostname")
+            if r.status_code == 0:
+                result = r.std_out.decode(errors="replace").strip()
+                return JSONResponse({"ok": True, "message": result or "Connected successfully"})
+            else:
+                err = r.std_err.decode(errors="replace").strip()
+                return JSONResponse({"ok": False, "error": err or f"WinRM command exited with status {r.status_code}"})
+        except Exception as e:
+            return JSONResponse({"ok": False, "error": str(e) or repr(e)})
+
     try:
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())

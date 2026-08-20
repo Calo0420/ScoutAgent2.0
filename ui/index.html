@@ -1658,8 +1658,15 @@ async function testConnection(){
   const port=parseInt(document.getElementById('sSshPort').value)||22;
   const keyPath=document.getElementById('sSshKeyPath').value.trim();
   const password=document.getElementById('sSshPassword').value.trim();
+  const os=document.getElementById('sTargetOS').value;  // 'linux' or 'windows' — the
+                                                          // backend needs this to pick
+                                                          // SSH vs WinRM; previously
+                                                          // omitted, so this button always
+                                                          // tried SSH even for Windows
+                                                          // targets ("Error reading SSH
+                                                          // protocol banner" on a WinRM port).
   try{
-    const res=await fetch('/api/test-connection',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({host,user,port,key_path:keyPath,password,operator_password:settingsPassword})});
+    const res=await fetch('/api/test-connection',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({host,user,port,key_path:keyPath,password,os,operator_password:settingsPassword})});
     const d=await res.json();
     if(d.ok){
       el.style.color='var(--safe)';
