@@ -310,23 +310,23 @@ def test_connection(payload: dict = Body(...)):
         return JSONResponse({"ok": False, "error": str(e)})
 
     if target_os == "windows":
+        # Reuse the exact same connection logic as the real scan tool
+        # (tools/windows_scout.py) instead of a separate implementation.
+        # First attempt here only tried a single transport ("ntlm") with no
+        # fallback, which failed against a real, working target because the
+        # server accepted a different transport (negotiate/basic) — this
+        # looked like a credentials error ("rejected by the server") but was
+        # actually a transport mismatch. _make_session tries ntlm, negotiate,
+        # then basic in order, matching what's proven to work in production.
         try:
-            import winrm
-        except ImportError:
-            return JSONResponse({"ok": False, "error": "pywinrm not installed on server. Run: pip install pywinrm"})
+            from tools.windows_scout import _make_session
+        except ImportError as e:
+            return JSONResponse({"ok": False, "error": f"pywinrm/windows_scout not available on server: {e}"})
         try:
-            session = winrm.Session(
-                f"http://{host}:{port}/wsman",
-                auth=(user, password),
-                transport="ntlm",
-            )
-            r = session.run_cmd("hostname")
-            if r.status_code == 0:
-                result = r.std_out.decode(errors="replace").strip()
-                return JSONResponse({"ok": True, "message": result or "Connected successfully"})
-            else:
-                err = r.std_err.decode(errors="replace").strip()
-                return JSONResponse({"ok": False, "error": err or f"WinRM command exited with status {r.status_code}"})
+            session, transport_used = _make_session(host, user, password, port, use_ssl=False)
+            result = session.run_cmd("hostname")
+            out = result.std_out.decode(errors="replace").strip()
+            return JSONResponse({"ok": True, "message": f"{out or 'Connected'} (via {transport_used})"})
         except Exception as e:
             return JSONResponse({"ok": False, "error": str(e) or repr(e)})
 
