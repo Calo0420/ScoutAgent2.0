@@ -612,7 +612,17 @@ def gatekeeper_status():
 
 @app.get("/")
 def index():
-    return FileResponse(UI_DIR / "index.html")
+    # Explicit no-cache: the entire UI (CSS/JS) lives inline in this single
+    # file. Browsers were aggressively caching it across deploys, making
+    # fixed bugs appear to persist until a manual hard-refresh. Force
+    # revalidation on every load so deploys take effect immediately.
+    return FileResponse(
+        UI_DIR / "index.html",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+        },
+    )
 
 
 # Serve any other static assets from ui/
