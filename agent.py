@@ -522,7 +522,15 @@ def dispatch_tool(name: str, inputs: dict) -> str:
         else:
             result = {"error": f"Unknown tool: {name}"}
     except Exception as e:
-        result = {"error": str(e), "tool": name}
+        import traceback
+        err_msg = str(e) or repr(e)  # str(e) is empty for some exceptions (e.g. bare
+                                       # socket.timeout) — fall back to repr() so we
+                                       # never lose the actual exception type/class,
+                                       # which is what made this failure mode
+                                       # undiagnosable ("empty error, no data").
+        print(f"[dispatch_tool] {name} raised {type(e).__name__}: {err_msg}")
+        print(traceback.format_exc())
+        result = {"error": err_msg, "error_type": type(e).__name__, "tool": name}
 
     return json.dumps(result, indent=2)
 
