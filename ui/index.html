@@ -231,6 +231,18 @@ canvas{display:block;position:relative;z-index:1}
     </div>
 
     <div style="padding:4px 0 2px;border-top:1px solid var(--border)">
+      <div class="phead sec-hdr" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px" onclick="toggleSec(this)">WINDOWS SERVER<span class="sec-arrow">&#9654;</span></div>
+      <div class="sec-body" style="display:none">
+      <div class="cfg-row" id="row-winpatch"><span class="cfg-label">Windows Updates: 62 days overdue</span><label class="toggle"><input type="checkbox" id="cfg-winpatch"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-windisk"><span class="cfg-label">System drive: Near capacity</span><label class="toggle"><input type="checkbox" id="cfg-windisk"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-winfw"><span class="cfg-label">Windows Firewall: Disabled</span><label class="toggle"><input type="checkbox" id="cfg-winfw"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-winrdp"><span class="cfg-label">RDP: Exposed to network</span><label class="toggle"><input type="checkbox" id="cfg-winrdp"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-winsmb1"><span class="cfg-label">SMBv1 protocol: Enabled</span><label class="toggle"><input type="checkbox" id="cfg-winsmb1"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="cfg-row" id="row-winautologon"><span class="cfg-label">Auto-logon: Credentials stored</span><label class="toggle"><input type="checkbox" id="cfg-winautologon"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      </div>
+    </div>
+
+    <div style="padding:4px 0 2px;border-top:1px solid var(--border)">
       <div class="phead sec-hdr" style="font-size:9px;color:var(--muted);padding:5px 10px;border-bottom:none;letter-spacing:1px" onclick="toggleSec(this)">NETWORK<span class="sec-arrow">&#9654;</span></div>
       <div class="sec-body" style="display:none">
       <div class="cfg-row" id="row-mongo"><span class="cfg-label">Database: Publicly exposed</span><label class="toggle"><input type="checkbox" id="cfg-mongo"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
@@ -1081,7 +1093,12 @@ function updateAccelHud(){
 
 // ========== TOGGLE SYNC ==========
 Object.entries(CONFIGS).forEach(([key,cfg])=>{
-  document.getElementById(cfg.id).addEventListener('change',e=>{
+  const cfgEl = document.getElementById(cfg.id);
+  if(!cfgEl){
+    console.warn(`CONFIGS key "${key}" references missing element #${cfg.id} — skipping (this must not throw, or every listener registered after this point silently never attaches)`);
+    return;
+  }
+  cfgEl.addEventListener('change',e=>{
     userControlled = true;
     const row=document.getElementById(`row-${key}`);
     if(row) row.classList.toggle('enabled',e.target.checked);
