@@ -479,7 +479,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
   <section id="section-1">
     <h2><span class="section-num">01</span>What ScoutAgent Does</h2>
 
-    <p>ScoutAgent 2.0 is an AI-powered, read-only infrastructure assessment tool built by Everforth. It connects to your Linux servers via SSH, your VMware vCenter via the vSphere API, and your network via passive nmap scans. It collects configuration data, security posture metrics, and resource utilization — then passes all findings to an AI reasoning engine (Claude, AWS Bedrock, or a local Ollama model) to synthesize them into a structured executive report.</p>
+    <p>ScoutAgent 2.0 is an AI-powered, read-only infrastructure assessment tool built by Everforth. It connects to your Linux and Windows servers (via SSH and WinRM respectively), your VMware vCenter via the vSphere API, and your network via passive nmap scans. It also assesses AI/ML infrastructure readiness on scanned hosts — GPU/CUDA presence, model-serving frameworks, vector databases, and installed ML libraries. It collects configuration data, security posture metrics, and resource utilization — then passes all findings to an AI reasoning engine (Claude, AWS Bedrock, a local Ollama model, or Venice AI) to synthesize them into a structured executive report.</p>
 
     <p>No changes are ever made to any system ScoutAgent touches. Every operation is strictly read-only: it runs shell commands via SSH, reads vCenter API responses over HTTPS, and performs host-discovery and port scans with nmap. The output is a single Markdown report covering six sections: Executive Summary, Server Inventory, Risk Map, Savings Estimate, License Cost Comparison, and Migration Roadmap. The entire assessment typically completes in 3 to 8 minutes depending on environment size and network latency.</p>
 
@@ -507,6 +507,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
     <h3>Network / Access Requirements</h3>
     <ul>
       <li><strong>SSH access</strong> to target Linux hosts: TCP 22, key-based or password auth</li>
+      <li><strong>WinRM access</strong> to target Windows hosts: TCP 5985 (HTTP) or 5986 (HTTPS), local admin or a delegated WinRM-permitted account. Authentication auto-negotiates NTLM/Negotiate/Basic.</li>
       <li><strong>vCenter access</strong> (if scanning VMware): HTTPS port 443 to vCenter server, read-only credentials</li>
       <li><strong>Network scan access</strong>: The host running ScoutAgent must be able to reach the target subnet for nmap discovery</li>
       <li><strong>Outbound HTTPS</strong> (port 443): Required for <code>DEPLOY_MODE=claude</code> and <code>DEPLOY_MODE=bedrock</code>. Not required for <code>DEPLOY_MODE=ollama</code></li>
@@ -521,6 +522,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
           <tr><td>AWS credentials</td><td>DEPLOY_MODE=bedrock</td><td>IAM: <code>bedrock:InvokeModel</code> on Claude model</td></tr>
           <tr><td>Ollama endpoint</td><td>DEPLOY_MODE=ollama</td><td>HTTP reachable from scan host</td></tr>
           <tr><td>SSH username + key</td><td>Linux scans</td><td>Read-only user, no sudo required</td></tr>
+          <tr><td>WinRM username + password</td><td>Windows scans</td><td>Local admin or WinRM-delegated account (key-based auth not supported for WinRM)</td></tr>
           <tr><td>vCenter credentials</td><td>VMware scans</td><td>Read-only role on vCenter</td></tr>
         </tbody>
       </table>
@@ -540,7 +542,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
     <p>Suitable for development, evaluation, or single-operator deployments.</p>
 
     <pre><code># Clone the repository
-git clone https://github.com/everforth/scoutagent2.git
+git clone https://github.com/Calo0420/ScoutAgent2.0.git
 cd ScoutAgent2.0
 
 # Create and activate a virtual environment
@@ -565,7 +567,7 @@ nano .env</code></pre>
     <p>Docker is the recommended deployment method for client engagements. It eliminates dependency conflicts, bundles nmap, and provides a consistent environment regardless of the host OS.</p>
 
     <pre><code># Clone the repository
-git clone https://github.com/everforth/scoutagent2.git
+git clone https://github.com/Calo0420/ScoutAgent2.0.git
 cd ScoutAgent2.0
 
 # Copy and edit the environment file
@@ -573,10 +575,9 @@ cp .env.example .env
 nano .env
 
 # Build and start
-docker compose up -d
+docker compose up -d</code></pre>
 
-# Run a demo scan to verify the container is working
-docker compose exec scoutagent python3 agent.py --demo</code></pre>
+    <p>Then open <code>http://&lt;host&gt;:7070</code> in a browser and use the demo/practice mode (Section 5) to verify the container is working — no credentials required.</p>
 
     <p>The Docker image includes nmap, Python 3.12, and all Python dependencies. Your <code>.env</code> file is mounted into the container at runtime — credentials are never baked into the image.</p>
 
@@ -680,52 +681,37 @@ OLLAMA_MODEL=llama3</code></pre>
   <section id="section-5">
     <h2><span class="section-num">05</span>Running Scans</h2>
 
-    <h3>Demo Mode</h3>
-    <p>Use this to validate your installation and familiarize yourself with the report format. No credentials required.</p>
-    <pre><code>python3 agent.py --demo
-# or with Docker:
-docker compose exec scoutagent python3 agent.py --demo</code></pre>
+    <p>ScoutAgent is operated entirely through its web UI — there is no separate command-line workflow in normal use. Open <code>http://&lt;scoutagent-host&gt;:7070</code> in a browser.</p>
 
-    <h3>Linux-Only Scan</h3>
-    <p>Scans one or more Linux hosts via SSH. Runs <code>scan_linux_environment</code>, <code>check_cis_benchmarks</code>, and <code>audit_automation_maturity</code>.</p>
-    <pre><code>python3 agent.py \
-  --client "Acme Corporation" \
-  --ssh-host 10.10.0.5 \
-  --ssh-user admin \
-  --ssh-key ~/.ssh/id_rsa</code></pre>
+    <h3>Configuring a Target</h3>
+    <p>Click the settings icon to open <strong>Operator Settings</strong>:</p>
+    <ol>
+      <li><strong>Client Name</strong> — the name that appears on the generated report.</li>
+      <li><strong>Target OS</strong> — select <strong>Linux Server (SSH)</strong> or <strong>Windows Server (WinRM)</strong>. This changes the fields below automatically (port defaults to 22 for Linux, 5985 for Windows; field labels and the auth section update to match).</li>
+      <li><strong>Target Host</strong> — the IP or hostname to scan.</li>
+      <li><strong>Credentials</strong> — for Linux, a username and either an SSH key path or password (key preferred). For Windows, a username and password (WinRM does not support key-based auth).</li>
+      <li>Optionally, use <strong>TEST CONNECTION</strong> to verify reachability and credentials before running a full scan.</li>
+      <li>Optionally configure <strong>Network Scan</strong> (a subnet for the passive nmap sweep) and/or <strong>VMware vCenter</strong> (host/user/password) if those modules are in scope.</li>
+      <li>Click <strong>SAVE SETTINGS</strong>.</li>
+    </ol>
 
-    <h3>VMware-Only Scan</h3>
-    <p>Scans a vCenter instance. Runs <code>scan_vmware_environment</code>.</p>
-    <pre><code>python3 agent.py \
-  --client "Acme Corporation" \
-  --vcenter-host vc.acme.local \
-  --vcenter-user readonly@vsphere.local \
-  --vcenter-password "your-password"</code></pre>
+    <h3>Selecting Accelerators</h3>
+    <p>The left panel lists every available accelerator as a toggle — Linux Fast Track, Hardening Sprint, Network Health, VMware Optimizer, AI Stack Assess, Automation &amp; IaC, Windows Fast Track, Windows Hardening. Toggle on whichever apply to the current target. Four scenario presets (Best Practice / Typical Client / High Risk / Worst Case) are also available for demo/practice purposes — they populate illustrative findings and don't affect a real scan against a real target.</p>
 
-    <h3>Network-Only Scan</h3>
-    <p>Scans a subnet with nmap. Runs <code>scan_network_health</code>.</p>
-    <pre><code>python3 agent.py \
-  --client "Acme Corporation" \
-  --network 10.10.0.0/24</code></pre>
+    <h3>Running the Scan</h3>
+    <p>Click <strong>RUN SCAN</strong>.</p>
 
-    <div class="callout warn">
-      <span class="callout-icon">&#9888;</span>
-      <div>nmap must be installed and on the system PATH. On Linux you may need to run as root or with <code>sudo</code> for certain scan types.</div>
+    <div class="callout note">
+      <span class="callout-icon">&#9432;</span>
+      <div>If Gatekeeper governance is enabled (<code>GATEKEEPER_SESSION=true</code>, the standard configuration for client engagements), the session shows as pending in the Gatekeeper UI until an operator authorizes it there with the operator token — a deliberate human-in-the-loop checkpoint, not a delay to work around.</div>
     </div>
 
-    <h3>Full Scan (All Three Modules)</h3>
-    <p>Pass all credential sets to run Linux, VMware, and network scans in a single assessment.</p>
-    <pre><code>python3 agent.py \
-  --client "Acme Corporation" \
-  --ssh-host 10.10.0.5 \
-  --ssh-user admin \
-  --ssh-key ~/.ssh/id_rsa \
-  --vcenter-host vc.acme.local \
-  --vcenter-user readonly@vsphere.local \
-  --vcenter-password "your-password" \
-  --network 10.10.0.0/24</code></pre>
+    <p>Once authorized, the scan runs against the configured target(s) and the scan log streams live in the right-hand panel. When it completes, a report modal appears with the executive summary, security score, and key findings, plus a <strong>DOWNLOAD REPORT</strong> button for the full report. If Gatekeeper is enabled, its own signed compliance audit PDF is available separately from the Gatekeeper UI's Report tab.</p>
 
-    <p>Reports are written to <code>reports/&lt;client&gt;_&lt;timestamp&gt;.md</code> and <code>reports/latest.json</code> (for the UI).</p>
+    <h3>Demo / Practice Mode</h3>
+    <p>The scenario presets populate the UI with realistic illustrative findings without touching any real infrastructure — useful for practicing the walkthrough or demoing without a real target available. No credentials required.</p>
+
+    <p>Reports are written to <code>reports/&lt;client&gt;_&lt;timestamp&gt;.md</code> and surfaced automatically in the UI once complete.</p>
   </section>
 
   <!-- SECTION 6 -->
@@ -865,7 +851,7 @@ brew install nmap</code></pre>
     <h3>No Data in UI</h3>
     <p><strong>Symptom:</strong> The ScoutAgent UI shows "No scan results yet."</p>
     <p><strong>Cause:</strong> No scan has been completed yet, or the <code>reports/latest.json</code> file was deleted.</p>
-    <p><strong>Fix:</strong> Run a scan (including <code>--demo</code> for testing). The UI polls <code>/api/latest</code> every 4 seconds and will update automatically once a scan completes.</p>
+    <p><strong>Fix:</strong> Run a scan (demo/practice mode is fine for testing — see Section 5). The UI polls for live results every few seconds and updates automatically once a scan completes.</p>
   </section>
 
   <!-- SECTION 9 -->
@@ -876,13 +862,13 @@ brew install nmap</code></pre>
     <p>No. Every operation is strictly read-only. ScoutAgent runs shell commands via SSH that only read data (no writes, no installs, no config changes), queries the vCenter API with read-only credentials, and performs passive nmap scans. Nothing is modified on any scanned system.</p>
 
     <h3>What data does ScoutAgent collect and where does it go?</h3>
-    <p>ScoutAgent collects system configuration data (OS version, patch level, open ports, CIS benchmark results, VM inventory). In <code>claude</code> mode this data is sent to Anthropic's API. In <code>bedrock</code> mode it stays in your AWS account. In <code>ollama</code> mode it never leaves your network. No credentials or private keys are ever collected — only the metadata about the configuration state of your servers.</p>
+    <p>ScoutAgent collects system configuration data (OS version, patch level, open ports, CIS benchmark results, VM inventory, Windows security posture, AI/ML stack inventory). In <code>claude</code> mode this data is sent to Anthropic's API. In <code>bedrock</code> mode it stays in your AWS account. In <code>ollama</code> mode it never leaves your network. In <code>venice</code> mode it's sent to Venice AI's infrastructure. No credentials or private keys are ever collected — only the metadata about the configuration state of your servers. Credential files are detected by name only; their contents are never read.</p>
 
     <h3>How long does a full scan take?</h3>
     <p>A typical full scan (1–3 Linux hosts, one vCenter with 50 VMs, and a /24 network) takes 3–8 minutes. Network scan time scales with the number of live hosts discovered (capped at 20 hosts for the risky port check). Large vCenter environments (500+ VMs) may take slightly longer.</p>
 
     <h3>Can ScoutAgent scan Windows servers?</h3>
-    <p>The current version focuses on Linux/VMware environments. Windows server scanning is on the roadmap. For Windows environments, the VMware and network scan modules still apply and will inventory Windows VMs through vCenter.</p>
+    <p>Yes. ScoutAgent connects to Windows Server hosts via WinRM (port 5985/5986) and runs the same accelerator categories as Linux — OS health and patching, plus a Windows-specific hardening and security posture check covering firewall profile state, RDP exposure and Network Level Authentication, SMBv1 status, password/lockout policy, Microsoft Defender status, and audit logging configuration. Authentication automatically tries NTLM, then Negotiate, then Basic, so it adapts to how WinRM is configured on the target without manual setup.</p>
 
     <h3>What happens if one scan module fails?</h3>
     <p>The agent captures the error in a <code>failed_tools</code> field and continues with the remaining modules. The final report includes a note stating which tools could not connect and the reason. A partial report is always better than no report.</p>

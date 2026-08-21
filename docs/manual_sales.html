@@ -692,10 +692,10 @@ hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
 
     <h3>Day of Meeting</h3>
     <ul class="checklist">
-      <li>Open your laptop. Have a terminal window ready with ScoutAgent ready to run.</li>
-      <li>Run the demo once before the meeting to confirm it still works: <code>python3 agent.py --demo</code></li>
-      <li>Confirm <code>DEMO_MODE=true</code> is set in <code>.env</code>. You do not want a live scan running during a demo — it will be slower and may fail if target credentials are not configured.</li>
-      <li>Have the report open in a readable format (the UI at <code>http://localhost:7070</code> or the Markdown file rendered in a viewer).</li>
+      <li>Open your laptop. Have the ScoutAgent UI already loaded in a browser tab: <code>http://&lt;host&gt;:7070</code>.</li>
+      <li>Run the demo scenario once before the meeting to confirm it still works — pick a preset (Typical Client or High Risk are good defaults) and click RUN SCAN.</li>
+      <li>Demo mode needs no target credentials and makes no real connections — safe to run cold, won't fail on missing access.</li>
+      <li>Have the report modal ready to reopen, or the browser tab positioned so you can pull it back up immediately.</li>
       <li>Close all other applications. Full screen is more compelling. No notifications.</li>
       <li>Have this question ready to ask early: "Before I show you the demo — what does your current infrastructure assessment process look like today?" Their answer will tell you exactly which parts of the report to emphasize.</li>
     </ul>
@@ -717,16 +717,16 @@ hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
     <p>Before you type anything, say this:</p>
 
     <div class="script-block">
-      "What I'm going to do is run ScoutAgent against a demo environment we use for exactly this purpose — it has a typical mid-size company's infrastructure profile: a few Linux servers, a VMware cluster, and a network segment. The vulnerabilities and cost issues are realistic. It'll take about 60 seconds to run, and then I'll walk you through what it found."
+      "What I'm going to do is run ScoutAgent against a demo environment we use for exactly this purpose — it has a typical mid-size company's infrastructure profile: a few Linux servers, a Windows server, a VMware cluster, and a network segment. The vulnerabilities and cost issues are realistic. It'll take about 60 seconds to run, and then I'll walk you through what it found."
     </div>
 
     <p>This framing does three things: it explains the demo, it sets a realistic time expectation, and it tells them the findings are realistic (not toy examples).</p>
 
-    <h3>The Command to Type</h3>
-    <pre><code>python3 agent.py --demo</code></pre>
+    <h3>The Demo Action</h3>
+    <p>Pick a scenario preset, click <strong>RUN SCAN</strong>.</p>
 
-    <p>Type it slowly and clearly. Say it out loud as you type:</p>
-    <div class="say-this">"This is the only command you need to run. One line. ScoutAgent handles everything from here."</div>
+    <p>Say as you click:</p>
+    <div class="say-this">"This is the only thing I need to do — pick what we're assessing, and click one button. ScoutAgent handles everything from here."</div>
 
     <h3>While It Runs — What to Say</h3>
     <p>As the agent runs, narrate what is happening at a high level. Do not explain technical details. Use language like:</p>
@@ -836,7 +836,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
 
     <h3>For the IT Manager / Technical Lead</h3>
     <p><strong>Focus on:</strong> Server Inventory and Migration Roadmap detail.</p>
-    <div class="say-this">"The inventory table is a complete asset register — every server we touched, fully documented. The flags in red are your immediate action items. Each flag type is defined consistently: PATCH GAP means it hasn't been patched in more than 60 days, STABILITY RISK means it hasn't been rebooted in more than 90 days."</div>
+    <div class="say-this">"The inventory table is a complete asset register — every server we touched, fully documented. The flags in red are your immediate action items. Each flag type is defined consistently: PATCH GAP means it hasn't been patched in more than 60 days, STABILITY RISK means it hasn't been rebooted in more than 90 days. If AI/ML workloads are in scope, there's also an AI stack readiness read — GPU presence, model-serving tooling, vector databases — worth showing if this client has any AI initiatives underway, since most haven't had that inventoried at all."</div>
     <div class="say-this">"Phase 1 is security hardening — 30 days, specific servers listed, hour estimates included. Phase 2 is stabilization. Phase 3 is where migration begins. The out-of-scope table at the end is as important as the roadmap itself — it shows what we're not touching and why."</div>
   </section>
 
@@ -870,7 +870,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
     <div class="objection">
       <div class="objection-q">"Can it run in our environment?"</div>
       <div class="objection-a">
-        <p>Yes, in most cases. ScoutAgent needs TCP 22 to reach your Linux servers — standard SSH — and HTTPS to reach vCenter if you have VMware. If you're running in an air-gapped environment with no outbound internet, we use the on-premises Ollama mode — no external connectivity required at all. If you have strict data residency requirements, we use your own AWS account through Bedrock. The tool is designed to meet you where your security policy already is, not to require exceptions to it.</p>
+        <p>Yes, in most cases. ScoutAgent needs TCP 22 for standard SSH to reach your Linux servers, WinRM (5985) for your Windows servers, and HTTPS to reach vCenter if you have VMware — it covers a mixed environment in one pass, not just one OS. If you're running in an air-gapped environment with no outbound internet, we use the on-premises Ollama mode — no external connectivity required at all. If you have strict data residency requirements, we use your own AWS account through Bedrock. The tool is designed to meet you where your security policy already is, not to require exceptions to it.</p>
         <p><em>If they ask about specific Linux distributions:</em> "It works on any Linux distribution with standard SSH — RHEL, CentOS, Rocky, Ubuntu, Debian."</p>
       </div>
     </div>
@@ -943,8 +943,8 @@ hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
         "ScoutAgent finds your security gaps and VMware waste in under 10 minutes — and produces a board-ready report your CIO can act on without calling a meeting."
       </div>
 
-      <h4>The Demo Command</h4>
-      <pre><code>python3 agent.py --demo</code></pre>
+      <h4>The Demo Action</h4>
+      <p style="font-size:12px;margin:8px 0">Pick a scenario preset, click RUN SCAN.</p>
       <p style="font-size:12px;margin-top:8px">Say while it runs: "It's scanning the environment... reading the security configuration... checking VMware... now the AI is writing the report..."</p>
 
       <h4>Three Things Each Persona Cares About</h4>
