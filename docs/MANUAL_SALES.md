@@ -23,7 +23,7 @@ Memorize this. Practice it until it is completely natural. Use it verbatim.
 
 ---
 
-> *"Most clients know they have technical debt and security gaps — they just don't know where or how much it's costing them. ScoutAgent connects to your infrastructure, reads everything in a single pass, and produces a board-ready report in under ten minutes. It finds the specific servers with security holes, calculates the exact cost of your VMware licensing waste, and gives you a 90-day roadmap to fix it — all without touching a single configuration. We use it to walk every new client through exactly what they have before we propose anything. Want to see it run on a demo environment right now?"*
+> *"Most clients know they have technical debt and security gaps — they just don't know where or how much it's costing them. ScoutAgent connects to your infrastructure — Linux, Windows, VMware, all of it — reads everything in a single pass, and produces a board-ready report in under ten minutes. It finds the specific servers with security holes, calculates the exact cost of your VMware licensing waste, and gives you a 90-day roadmap to fix it — all without touching a single configuration. We use it to walk every new client through exactly what they have before we propose anything. Want to see it run on a demo environment right now?"*
 
 ---
 
@@ -45,10 +45,10 @@ Memorize this. Practice it until it is completely natural. Use it verbatim.
 
 ### Day of Meeting
 
-- [ ] Open your laptop. Have a terminal window ready with ScoutAgent ready to run.
-- [ ] Run the demo once before the meeting to confirm it still works: `python3 agent.py --demo`
-- [ ] Confirm `DEMO_MODE=true` is set in `.env`. You do not want a live scan running during a demo — it will be slower and may fail if target credentials are not configured.
-- [ ] Have the report open in a readable format (the UI at `http://localhost:7070` or the Markdown file rendered in a viewer).
+- [ ] Open your laptop. Have the ScoutAgent UI already loaded in a browser tab: `http://<host>:7070`.
+- [ ] Run the demo scenario once before the meeting to confirm it still works — pick a preset (Typical Client or High Risk are good defaults for most audiences) and click RUN SCAN.
+- [ ] Demo mode needs no target credentials and makes no real connections — safe to run cold, won't fail on missing access.
+- [ ] Have the report modal ready to reopen, or the browser tab positioned so you can pull it back up immediately.
 - [ ] Close all other applications. Full screen is more compelling. No notifications.
 - [ ] Have this question ready to ask early: *"Before I show you the demo — what does your current infrastructure assessment process look like today?"* Their answer will tell you exactly which parts of the report to emphasize.
 
@@ -71,15 +71,13 @@ Before you type anything, say this:
 
 This framing does three things: it explains the demo, it sets a realistic time expectation, and it tells them the findings are realistic (not toy examples).
 
-### The Command to Type
+### Running the Demo
 
-```bash
-python3 agent.py --demo
-```
+Click the accelerator toggles relevant to the story you want to tell, pick a scenario preset (or leave individual toggles as-is for a custom mix), and click **RUN SCAN**.
 
-Type it slowly and clearly. Say it out loud as you type:
+Say as you click:
 
-> *"This is the only command you need to run. One line. ScoutAgent handles everything from here."*
+> *"This is the only thing I need to do — pick what we're assessing, and click one button. ScoutAgent handles everything from here."*
 
 ### While It Runs (What to Say)
 
@@ -173,7 +171,7 @@ Then point to any critical finding and say:
 
 **What to say:**
 
-> *"The inventory table is a complete asset register — every server we touched, fully documented. The flags in red are your immediate action items. Each flag type is defined consistently: PATCH GAP means it hasn't been patched in more than 60 days, STABILITY RISK means it hasn't been rebooted in more than 90 days."*
+> *"The inventory table is a complete asset register — every server we touched, fully documented. The flags in red are your immediate action items. Each flag type is defined consistently: PATCH GAP means it hasn't been patched in more than 60 days, STABILITY RISK means it hasn't been rebooted in more than 90 days. If AI/ML workloads are in scope, there's also an AI stack readiness read — GPU presence, model-serving tooling, vector databases — worth showing if this client has any AI initiatives underway, since most haven't had that inventoried at all."*
 
 For the roadmap:
 
@@ -227,7 +225,7 @@ If they press for more technical comparison:
 
 **Answer:**
 
-> *"Yes, in most cases. ScoutAgent needs TCP 22 to reach your Linux servers — standard SSH — and HTTPS to reach vCenter if you have VMware. If you're running in an air-gapped environment with no outbound internet, we use the on-premises Ollama mode — no external connectivity required at all. If you have strict data residency requirements, we use your own AWS account through Bedrock. If you prefer open-source models without an Anthropic account, we can run through Venice AI. The tool is designed to meet you where your security policy already is, not to require exceptions to it."*
+> *"Yes, in most cases. ScoutAgent needs TCP 22 for standard SSH to reach your Linux servers, WinRM (5985) for your Windows servers, and HTTPS to reach vCenter if you have VMware — it covers a mixed environment in one pass, not just one OS. If you're running in an air-gapped environment with no outbound internet, we use the on-premises Ollama mode — no external connectivity required at all. If you have strict data residency requirements, we use your own AWS account through Bedrock. If you prefer open-source models without an Anthropic account, we can run through Venice AI. The tool is designed to meet you where your security policy already is, not to require exceptions to it."*
 
 If they ask about specific Linux distributions:
 
@@ -290,11 +288,9 @@ Do not leave without naming a specific next step. Pick one of these based on the
 
 ---
 
-### The Demo Command
+### The Demo Action
 
-```
-python3 agent.py --demo
-```
+Pick a scenario preset, click **RUN SCAN**.
 
 Say while it runs: *"It's scanning the environment... reading the security configuration... checking VMware... now the AI is writing the report..."*
 

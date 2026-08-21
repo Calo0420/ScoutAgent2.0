@@ -11,8 +11,10 @@ The Scout Agent is a Claude-powered autonomous agent that performs read-only inf
 
 ## Architecture
 
+The primary interface is the web UI (FastAPI + a single-page app), served at `http://<host>:7070`. An operator configures the target (host/credentials, OS type, accelerators to run) in Settings and clicks RUN SCAN — there is no separate CLI workflow in normal use.
+
 ```
-CLI / API request
+Web UI (RUN SCAN)
        ↓
   agent.py — run_scout()
        ↓
@@ -182,6 +184,30 @@ Returns: tools detected with versions, maturity rating:
 
 ---
 
+### assess_ai_stack
+**Accelerator:** A7 — AI Stack Assessment
+**Transport:** SSH (paramiko)
+**Access level:** Read-only shell commands + name-based file detection
+
+Collects:
+- GPU/CUDA presence (`nvidia-smi`, driver + device count), ROCm presence
+- Container/orchestration tooling (Docker, Podman, Kubernetes, Helm)
+- Model-serving frameworks present (Triton, TorchServe, Ollama, vLLM, Ray, MLflow, BentoML)
+- ML/AI Python libraries installed (PyTorch, TensorFlow, Transformers, LangChain, scikit-learn, Anthropic/OpenAI SDKs)
+- Vector database presence (Chroma, Qdrant, Weaviate, Milvus, Pinecone SDK, pgvector extension)
+- Model files present on disk (`.bin` / `.gguf` / `.pt`, bounded search — see note below)
+- AI-facing API ports listening (8000/8080/8888/11434/7860)
+- **Data classification enforcement:** detects credential/secret files (`.env`, `.pem`, `.key`, `id_rsa`, `credentials`) by name only, then requests read access through Gatekeeper for each — Gatekeeper blocks the content read per the data classification policy (CIS Control 3 / NIST 800-53 AC-3) and the attempt is logged with a live Bedrock risk analysis. The tool reports these as "detected, not read," never their contents.
+
+Returns: AI stack readiness rating (`EARLY_STAGE` / `DEVELOPMENT_READY` / etc.), inventory of what's present/absent, and the credential-detection results.
+
+**Required inputs:** `host`, `username`
+**Optional inputs:** `key_path` (preferred), `password`, `port`
+
+> **Implementation note:** the model-file search (`find /opt /home /var ...`) must be `-maxdepth`-bounded. An unbounded recursive search on a host with Docker volumes or large `node_modules` trees can exceed paramiko's SSH channel timeout and fail with an unhelpful empty error — this bit us in production once, fixed 2026-08-20.
+
+---
+
 ### scan_vmware_environment
 **Accelerator:** A5 — VMware Cost Optimizer
 **Transport:** pyVmomi HTTPS (port 443)
@@ -283,16 +309,26 @@ Each section ends with the applicable Everforth accelerator reference.
 ## File Structure
 
 ```
-ScoutAgent/
+ScoutAgent2.0/
 ├── agent.py                  # Main agent loop + tool dispatcher
+├── gatekeeper_client.py       # Gatekeeper session/access-request client
 ├── tools/
-│   ├── linux_scout.py        # A1, A2, A8 tools
-│   ├── vmware_scout.py       # A5 tool
-│   └── network_scout.py      # A3 tool
+│   ├── linux_scout.py         # A1, A2, A8 tools
+│   ├── windows_scout.py       # A1/A2 Windows tools (WinRM)
+│   ├── ai_stack_scout.py      # A7 tool
+│   ├── vmware_scout.py        # A5 tool
+│   ├── network_scout.py       # A3 tool
+│   └── validate.py            # Input validation helpers
+├── ui/
+│   ├── server.py               # FastAPI app — the actual entry point in normal use
+│   └── index.html              # Single-page operator UI
 ├── docs/
-│   ├── TECHNICAL.md          # This document
-│   └── DELIVERY.md           # Client-facing report reference
-├── reports/                  # Generated reports (gitignored)
+│   ├── TECHNICAL.md            # This document
+│   ├── MANUAL_SALES.md         # Sales playbook
+│   ├── MANUAL_CLIENT_IT.md     # Client-facing IT manual
+│   ├── DELIVERY.md             # Client-facing report reference
+│   └── SAMPLE_REPORT.md        # Example output
+├── reports/                   # Generated reports (gitignored)
 ├── Dockerfile
 ├── docker-compose.yml
 └── requirements.txt
@@ -306,6 +342,7 @@ ScoutAgent/
 anthropic>=0.25.0    # Claude API + Bedrock client
 openai>=1.0.0        # OpenAI-compat client (venice, ollama modes)
 paramiko>=3.4.0      # SSH transport
+pywinrm>=0.4.3       # WinRM transport (Windows scan tools)
 pyVmomi>=8.0.2       # VMware vCenter API
 python-dotenv>=1.0.0 # Environment config
 nmap                 # System package (included in Docker image)
